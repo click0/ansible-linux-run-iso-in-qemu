@@ -1,0 +1,23 @@
+---
+galaxy_info:
+  namespace: click0
+  role_name: linux_run_iso_in_qemu
+  author: Vladislav V. Prodan
+  description: Linux. Running QEMU with (or without) ISO and connecting block devices (HDD/SSD) of the host machine.
+  company: https://support.od.ua
+  github_branch: master
+  license: BSD
+  min_ansible_version: '2.11'
+  platforms:
+    - name: 'Debian'
+      versions: ['all']
+  galaxy_tags:
+    - linux
+    - system
+    - run
+    - rescue
+    - qemu
+    - iso
+dependencies: []
+collections: []
+...

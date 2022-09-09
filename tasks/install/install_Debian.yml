@@ -1,0 +1,39 @@
+---
+
+- name: Install gpg, ca-certificates
+  apt:
+    name:
+      - gpg
+      - ca-certificates
+    update_cache: true
+  when: (lisoq_qemu_install)
+
+- name: Install qemu-system-x86
+  apt:
+    name:
+      - qemu-system-x86
+  when: (lisoq_qemu_install)
+
+- name: Install rsync
+  apt:
+    name:
+      - rsync
+  when: (lisoq_iso_file_local) or (lisoq_qemu_static_custom_local)
+
+- name: Install iptables
+  apt:
+    name:
+      - iptables
+  when: (lisoq_firewall_acl_enable)
+
+# - name: Starting iptables services after installation
+#  ansible.builtin.systemd:
+#    name: '{{ services }}'
+#    state: started
+#    enabled: true
+#  with_items:
+#    - iptables
+#    - ip6tables
+#  loop_control:
+#    loop_var: services
+#  when: (lisoq_firewall_acl_enable)

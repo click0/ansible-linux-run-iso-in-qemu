@@ -1,0 +1,64 @@
+---
+
+lisoq_qemu_enable: false
+
+lisoq_qemu_static_custom_enable: false
+lisoq_qemu_static_custom_url: 'https://support.org.ua/Soft/vKVM/orig/vkvm.tar.gz' # from url archive
+
+#   Mirrors
+#   - https://support.org.ua/Soft/vKVM/orig/vkvm.tar.gz
+#   - https://cdn.rodney.io/content/blog/files/vkvm.tar.gz
+#   - https://abcvg.ovh/uploads/need/vkvm-latest.tar.gz
+#   - https://depenguin.me/files/vkvm.tar.gz
+
+lisoq_qemu_static_custom_local: '' # local file (archive tar.gz) in Ansible host
+lisoq_qemu_static_custom_relative_dir: '/share/qemu/'
+lisoq_qemu_static_custom_uefi_url: 'https://support.org.ua/Soft/vKVM/orig/uefi.tar.gz' # from url archive
+lisoq_qemu_args_port_ssh: '1022'  # ssh port forwarding
+lisoq_qemu_args_port_rdp: '3389'  # RDP port forwarding
+lisoq_qemu_args_port_vnc: '5901'  # VNC port forwarding
+lisoq_qemu_vnc_type: 'local' # or 'share' # or 'socket' ????
+lisoq_qemu_install: false
+lisoq_qemu_ram: '1024' # in MiB (mebibyte)
+lisoq_qemu_cpu: '' # all CPU - autodetect
+lisoq_qemu_disk: '' # default - autodetect
+#  - 'sda'
+#  - 'sdb'
+lisoq_qemu_exclude_disk:
+  - 'fd0'
+  - 'sr0'
+lisoq_qemu_boot_cd: true
+lisoq_qemu_boot_once_cd: true
+
+lisoq_iso_file_local: '' # local file in Ansible host
+lisoq_iso_file_remote: '' # file in target host
+lisoq_iso_file_url: 'https://mfsbsd.vx.sk/files/iso/12/amd64/mfsbsd-12.2-RELEASE-amd64.iso'
+lisoq_iso_file_ssh_port: '22' # sshd port that accepts connections _inside_ ISO.
+
+lisoq_ramdisk_enable: false
+lisoq_ramdisk_location: '/mnt'
+lisoq_ramdisk_another_location: '/tmp'
+lisoq_ramdisk_existed: false
+lisoq_ramdisk_mounted: false
+lisoq_ramdisk_size: '300' # in MiB (mebibyte)
+
+lisoq_total_need_ram: "( {{ lisoq_ramdisk_size | int + lisoq_qemu_ram | int }} | default('300') )"
+
+lisoq_firewall_acl_enable: false # ACL to the ports {{ lisoq_qemu_args_port_ssh }} and {{ lisoq_qemu_args_port_vnc }}
+lisoq_firewall_acl_ipv4_white:
+  - '127.0.0.0/8'
+lisoq_firewall_acl_ipv6_white:
+  - '::1/128'
+
+lisoq_firewall_acl_ports:
+  - '{{ lisoq_qemu_args_port_ssh | default(omit) }}'
+  - '{{ lisoq_qemu_args_port_rdp | default(omit) }}'
+  - '{{ lisoq_qemu_args_port_vnc | default(omit) }}'
+
+lisoq_qemu_args: '
+ -net nic
+ -rtc base=localtime
+ -M pc
+ -vga std
+ -daemonize
+'

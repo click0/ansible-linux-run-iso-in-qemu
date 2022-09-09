@@ -1,0 +1,27 @@
+---
+
+# temporarily disable
+# - name: Install the minimum required software for further work.
+#   include: 0-pre-install.yml
+
+- name: Configure role.
+  include_tasks: 1-configure.yml
+
+- name: Vitualisation check.
+  include_tasks: 2-virtualisation_check.yml
+
+- name: Configure role (Part II).
+  include_tasks: 3-configure.yml
+
+- name: Installing new software (if needed).
+  include_tasks: 4-install.yml
+
+- name: Configure iptables.
+  include_tasks: 5-iptables.yml
+  when: (lisoq_firewall_acl_enable)
+
+- name: Upload files and extract (if needed).
+  include_tasks: upload_files.yml
+
+- name: Starting qemu
+  include_tasks: start_qemu.yml

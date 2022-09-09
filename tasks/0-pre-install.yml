@@ -1,0 +1,22 @@
+---
+
+- name: run apt-get update and install python via raw module
+  raw: '{{ item }}'
+  loop:
+    - apt-get update
+    - apt-get -y install python3-apt
+  ignore_errors: true
+
+- name: Ensure python3-apt is installed
+  command: >
+    apt-get install python3-apt -y -q
+    creates=/usr/share/doc/python-apt
+
+- name: Install gpg, ca-certificates, wget
+  apt:
+    name:
+      - gpg
+      - ca-certificates
+    #  - wget
+    #      - tmux
+    update_cache: true

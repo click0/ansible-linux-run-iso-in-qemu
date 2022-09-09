@@ -1,0 +1,15 @@
+---
+
+# https://richm.github.io/how-to-include-vars-and-tasks-in-ansible.html
+- name: Configure and install packages for current OS
+  include_tasks: '{{ platform_tasks }}'
+  with_first_found:
+    - files:
+        - 'install_{{ ansible_os_family }}.yml'
+        - 'install_{{ ansible_distribution }}.yml'
+        - not_supported.yml
+      paths:
+        - '{{ role_path }}/tasks/install'
+      skip: true
+  loop_control:
+    loop_var: platform_tasks
