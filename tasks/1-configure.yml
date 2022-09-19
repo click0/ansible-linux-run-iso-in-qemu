@@ -63,29 +63,29 @@
     # check /tmp and /mnt - who is mounted
     # if no one is mounted, then mount in RAM /mnt
 
-    - name: Check mounted /tmp (lisoq_ramdisk_another_location)
+    - name: Check mounted /tmp (lisoq_ramdisk_another_path)
       set_fact:
         lisoq_ramdisk_mounted: true
-        lisoq_ramdisk_location: '{{ lisoq_ramdisk_another_location }}'
-      when: (ansible_mounts | selectattr('mount', 'equalto', lisoq_ramdisk_another_location) | list | length > 0)
+        lisoq_ramdisk_path: '{{ lisoq_ramdisk_another_path }}'
+      when: (ansible_mounts | selectattr('mount', 'equalto', lisoq_ramdisk_another_path) | list | length > 0)
 
     - name: Check mounted {{ lisoq_ramdisk_location }}
       set_fact:
         lisoq_ramdisk_mounted: true
       when: >-
         (not lisoq_ramdisk_mounted) and
-        (ansible_mounts | selectattr('mount', 'equalto', lisoq_ramdisk_location) | list | length > 0)
+        (ansible_mounts | selectattr('mount', 'equalto', lisoq_ramdisk_path) | list | length > 0)
 
     - name: Ensure ramdisk directory exists
       ansible.builtin.file:
-        dest: '{{ lisoq_ramdisk_location }}'
+        dest: '{{ lisoq_ramdisk_path }}'
         mode: '01777'
         state: directory
       when: (not lisoq_ramdisk_mounted)
 
-    - name: Ensure ramdisk lisoq_ramdisk_location is mounted
+    - name: Ensure ramdisk lisoq_ramdisk_path is mounted
       ansible.posix.mount:
-        name: '{{ lisoq_ramdisk_location }}'
+        name: '{{ lisoq_ramdisk_path }}'
         src: tmpfs
         fstype: tmpfs
         opts: 'size={{ lisoq_ramdisk_size }}M'
@@ -94,7 +94,7 @@
 
     - name: Ensure ramdisk not /tmp is mounted
       ansible.posix.mount:
-        name: '{{ lisoq_ramdisk_location }}'
+        name: '{{ lisoq_ramdisk_path }}'
         src: tmpfs
         fstype: tmpfs
         opts: 'size={{ lisoq_ramdisk_size }}M'
@@ -133,12 +133,12 @@
 
 - name: Add the local ISO option to qemu_args.
   set_fact:
-    lisoq_qemu_args: '{{ lisoq_qemu_args }} -cdrom {{ lisoq_ramdisk_location }}/{{ lisoq_iso_file_local | basename }}'
+    lisoq_qemu_args: '{{ lisoq_qemu_args }} -cdrom {{ lisoq_ramdisk_path }}/{{ lisoq_iso_file_local | basename }}'
   when: (lisoq_iso_file_local)
 
 - name: Add an ISO URL option to qemu_args. We will download this ISO later.
   set_fact:
-    lisoq_qemu_args: '{{ lisoq_qemu_args }} -cdrom {{ lisoq_ramdisk_location }}/{{ lisoq_iso_file_url | basename }}'
+    lisoq_qemu_args: '{{ lisoq_qemu_args }} -cdrom {{ lisoq_ramdisk_path }}/{{ lisoq_iso_file_url | basename }}'
   when: (lisoq_iso_file_url)
 
 - name: Add the count of CPU to qemu_args.

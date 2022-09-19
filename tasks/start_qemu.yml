@@ -9,22 +9,25 @@
 - name: Starting qemu (lisoq_qemu_static_custom_url)
   block:
     - name: 'Create a directory
-    "{{ (lisoq_ramdisk_location|length > 0) | ternary(lisoq_ramdisk_location,lisoq_ramdisk_another_location) }}{{ lisoq_qemu_static_custom_relative_dir }}"
+    "{{ (lisoq_ramdisk_path|length > 0) | ternary(lisoq_ramdisk_path,lisoq_ramdisk_another_path) }}{{ lisoq_qemu_static_custom_relative_dir }}"
      if it does not exist'
       ansible.builtin.file:
-        path: '{{ (lisoq_ramdisk_location|length > 0) |
-           ternary(lisoq_ramdisk_location,lisoq_ramdisk_another_location) }}{{ lisoq_qemu_static_custom_relative_dir }}'
+        path: >-
+          {{ (lisoq_ramdisk_path|length > 0)
+          | ternary(lisoq_ramdisk_path,lisoq_ramdisk_another_path) }}{{ lisoq_qemu_static_custom_relative_dir }}
         state: directory
         mode: '0755'
 
     - name: Starting qemu qemu-system-x86_64
       command: >-
-        {{ (lisoq_ramdisk_location|length > 0) | ternary(lisoq_ramdisk_location,lisoq_ramdisk_another_location) }}/qemu-system-x86_64
-        -L {{ (lisoq_ramdisk_location|length > 0)
-        | ternary(lisoq_ramdisk_location,lisoq_ramdisk_another_location) }}/{{ lisoq_qemu_static_custom_relative_dir }}
+        {{ (lisoq_ramdisk_path|length > 0)
+        | ternary(lisoq_ramdisk_path,lisoq_ramdisk_another_path) }}/qemu-system-x86_64
+        -L {{ (lisoq_ramdisk_path|length > 0)
+        | ternary(lisoq_ramdisk_path,lisoq_ramdisk_another_path) }}/{{ lisoq_qemu_static_custom_relative_dir }}
         {{ lisoq_qemu_args }}
       args:
-        chdir: '{{ (lisoq_ramdisk_location|length > 0) |
-                ternary(lisoq_ramdisk_location,lisoq_ramdisk_another_location) }}{{ lisoq_qemu_static_custom_relative_dir }}'
+        chdir: '{{ (lisoq_ramdisk_path|length > 0) |
+                ternary(lisoq_ramdisk_path,lisoq_ramdisk_another_path) }}{{ lisoq_qemu_static_custom_relative_dir }}'
+      ignore_errors: '{{ ansible_check_mode }}'
       debugger: on_failed
   when: (lisoq_qemu_static_custom_local) or (lisoq_qemu_static_custom_url)

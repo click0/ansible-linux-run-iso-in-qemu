@@ -6,7 +6,7 @@
 - name: Upload file 'lisoq_iso_file_local'
   ansible.posix.synchronize:
     src: '{{ lisoq_iso_file_local }}'
-    dest: '{{ lisoq_ramdisk_location }}'
+    dest: '{{ lisoq_ramdisk_path }}'
     # (default) overwrite on source change
     copy_links: true # Copy symlinks as the item
   ignore_errors: true
@@ -15,7 +15,7 @@
 - name: Upload file 'lisoq_qemu_static_custom_local'.
   ansible.posix.synchronize:
     src: '{{ lisoq_qemu_static_custom_local }}'
-    dest: '{{ lisoq_ramdisk_location }}'
+    dest: '{{ lisoq_ramdisk_path }}'
     copy_links: true
   ignore_errors: true
   when: (lisoq_qemu_static_custom_enable) and (lisoq_qemu_static_custom_local)
@@ -25,7 +25,7 @@
 - name: Download file 'lisoq_iso_file_url'
   ansible.builtin.get_url:
     url: '{{ lisoq_iso_file_url }}'
-    dest: '{{ lisoq_ramdisk_location }}'
+    dest: '{{ lisoq_ramdisk_path }}'
     mode: '0644'
     # (default) overwrite on source change
   when: (lisoq_iso_file_url)
