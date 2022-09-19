@@ -69,7 +69,7 @@
         lisoq_ramdisk_path: '{{ lisoq_ramdisk_another_path }}'
       when: (ansible_mounts | selectattr('mount', 'equalto', lisoq_ramdisk_another_path) | list | length > 0)
 
-    - name: Check mounted {{ lisoq_ramdisk_location }}
+    - name: Check mounted {{ lisoq_ramdisk_path }}
       set_fact:
         lisoq_ramdisk_mounted: true
       when: >-
