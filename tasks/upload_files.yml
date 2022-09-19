@@ -44,7 +44,8 @@
     src: '{{ lisoq_qemu_static_custom_uefi_url }}'
     dest: '{{ lisoq_ramdisk_path }}'
     remote_src: true
-  when: (lisoq_qemu_static_custom_enable) and (lisoq_qemu_disk_large_detect) and (lisoq_qemu_static_custom_uefi_url|lenght > 0)
+  when: (lisoq_qemu_static_custom_enable) and (lisoq_qemu_disk_large_detect) and
+        (lisoq_qemu_static_custom_uefi_url|lenght > 0)
 
 - name: Download and unarchive file 'lisoq_qemu_static_custom_url'.
   ansible.builtin.unarchive:

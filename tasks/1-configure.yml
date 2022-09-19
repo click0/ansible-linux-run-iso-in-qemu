@@ -116,8 +116,13 @@
 
 - name: Add net user options to qemu_args. Both ports - {{ lisoq_qemu_args_port_ssh }} and {{ lisoq_qemu_args_port_rdp }}
   set_fact:
-    lisoq_qemu_args: '{{ lisoq_qemu_args }}
-    -net user,hostfwd=tcp::{{ lisoq_qemu_args_port_ssh }}-:{{ lisoq_iso_file_ssh_port }},hostfwd=tcp::{{ lisoq_qemu_args_port_rdp }}-:{{ lisoq_qemu_args_port_rdp }}'
+    # https://stackoverflow.com/a/71651490/12646191
+    lisoq_qemu_args: >-
+      {{ lisoq_qemu_args }} -net user,
+      {#- -#}
+      hostfwd=tcp::{{ lisoq_qemu_args_port_ssh }}-:{{ lisoq_iso_file_ssh_port }},
+      {#- -#}
+      hostfwd=tcp::{{ lisoq_qemu_args_port_rdp }}-:{{ lisoq_qemu_args_port_rdp }}
   when: (lisoq_qemu_args_port_ssh) and (lisoq_qemu_args_port_rdp)
 
 - name: Add keyboard layot option to qemu_args.
