@@ -2,16 +2,17 @@
 
 [Ansible Galaxy](https://galaxy.ansible.com/click0/linux_run_iso_in_qemu/)
 
-Linux. Running QEMU with (or without) ISO and connecting block devices (HDD/SSD) of the host machine.
+Linux. Running QEMU with (or without) ISO image and connecting block devices (HDD/SSD) of the host machine.  
+
 Feel free to [share your feedback and report issues](https://github.com/click0/ansible-linux-run-iso-in-qemu/issues).
 [Contributions are welcome](https://github.com/firstcontributions/first-contributions).
 
 ## Synopsis
 
-Many Datacenters and Hosters have removed the OS installation from their media (ISO).
+Many Datacenters and Hosters have removed the OS installation from their media (ISO image).
 And, most generally offer very little choice - Debian, Ubuntu, CentOS and nothing else.
 This role will allow you to run the QEMU program with the Rescue server mode.  
-[QEMU](https://www.qemu.org/) allows us to emulate a virtual machine, to which we will connect the ISO as a CD-ROM and connecting block devices (HDD/SSD) of the host machine.
+[QEMU](https://www.qemu.org/) allows us to emulate a virtual machine, to which we will connect the ISO image as a CD-ROM and connecting block devices (HDD/SSD) of the host machine.
 The role uses QEMU of two types - from the package base of the system and universal binary for Linux with statically compiled libraries.
 The ISO can be used as your favorite OS install disk, diagnostic disk, or other live operating system ([Live-CD](https://en.wikipedia.org/wiki/Live_CD))
 Sources for obtaining ISO and QEMU universal binary - local system running Ansible, Rescue server mode itself and ftp/http(s).
@@ -31,7 +32,7 @@ Installed packages:
 See the `defaults/main.yml` and examples in vars:
 
     lisoq_qemu_enable: false
-Do I need to use and run QEMU. Without this option, the role can download the ISO and configure the firewall.
+Do I need to use and run QEMU. Without this option, the role can download the ISO image and configure the firewall.
 
     lisoq_qemu_static_custom_enable: false
 The option is responsible for using (or not) universal binary for Linux with statically compiled libraries.
@@ -88,24 +89,25 @@ You can specify your own list of block devices:
 List of block disk devices to be excluded from the `lisoq_qemu_disk` list. The exclusion list usually contains FDD and CD-ROM devices.
 
     lisoq_qemu_boot_cd: true
-Whether to boot QEMU from CD-ROM (from our downloaded ISO file `lisoq_iso_file_...` ).
+Whether to boot QEMU from CD-ROM (from our downloaded ISO image file `lisoq_iso_file_...` ).
+If this parameter is set to `false`, then QEMU will try to boot from the first block device specified.
 
     lisoq_qemu_boot_once_cd: true
-Whether to download _**once**_ from CD-ROM (from our downloaded ISO file `lisoq_iso_file_...` ). 
+Whether to download _**once**_ from CD-ROM (from our downloaded ISO image file `lisoq_iso_file_...` ). 
 Inside QEMU, you can choose to `reboot` the virtual machine and then the system will try to boot from the HDDs, _not_ from the CD-ROM.
 To use service CDs where there is a large set of applications, and the need to reboot the virtual machine frequently, set the value to `false`.
 
     lisoq_iso_file_local: ''
-Full path to the ISO file on the host machine from which the Ansible role is run. There is support for symlinks and share partitions mounted on the host machine file system.
+Full path to the ISO image file on the host machine from which the Ansible role is run. There is support for symlinks and share partitions mounted on the host machine file system.
 
     lisoq_iso_file_remote: '' 
-ISO file location path on a remote host.
+ISO image file location path on a remote host.
 
     lisoq_iso_file_url: 'https://mfsbsd.vx.sk/files/iso/12/amd64/mfsbsd-12.2-RELEASE-amd64.iso'
-URL location with ISO file.
+URL location with ISO image file.
 
     lisoq_iso_file_ssh_port: '22' 
-Sshd port that accepts connections _inside_ ISO.
+Sshd port that accepts connections _inside_ ISO image.
 
     lisoq_ramdisk_enable: false
 Use (and create) RAM-disk partitions on the target system (before running QEMU).

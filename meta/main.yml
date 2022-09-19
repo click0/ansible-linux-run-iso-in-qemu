@@ -3,7 +3,7 @@ galaxy_info:
   namespace: click0
   role_name: linux_run_iso_in_qemu
   author: Vladislav V. Prodan
-  description: Linux. Running QEMU with (or without) ISO and connecting block devices (HDD/SSD) of the host machine.
+  description: Linux. Running QEMU with (or without) ISO image and connecting block devices (HDD/SSD) of the host machine.
   company: https://support.od.ua
   github_branch: master
   license: BSD
