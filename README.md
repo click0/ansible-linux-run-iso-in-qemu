@@ -14,8 +14,8 @@ And, most generally offer very little choice - Debian, Ubuntu, CentOS and nothin
 This role will allow you to run the QEMU program with the Rescue server mode.  
 [QEMU](https://www.qemu.org/) allows us to emulate a virtual machine, to which we will connect the ISO image as a CD-ROM and connecting block devices (HDD/SSD) of the host machine.
 The role uses QEMU of two types - from the package base of the system and universal binary for Linux with statically compiled libraries.
-The ISO can be used as your favorite OS install disk, diagnostic disk, or other live operating system ([Live-CD](https://en.wikipedia.org/wiki/Live_CD))
-Sources for obtaining ISO and QEMU universal binary - local system running Ansible, Rescue server mode itself and ftp/http(s).
+The ISO image can be used as your favorite OS install disk, diagnostic disk, or other live operating system ([Live-CD](https://en.wikipedia.org/wiki/Live_CD))
+Sources for obtaining ISO image and QEMU universal binary - local system running Ansible, Rescue server mode itself and ftp/http(s).
 
 There is no Internet inside the system running inside QEMU yet, but we will fix this in the next release.  
 To increase security for access to the system in QEMU, you can specify a whitelist of IP/networks through the `iptables` firewall.  
