@@ -1,0 +1,54 @@
+---
+
+- name: '{{ ansible_os_family }} | Install EPEL repository'
+  ansible.builtin.yum:
+    name:
+      - epel-release
+    state: present
+    update_cache: true
+  when: (lisoq_qemu_install)
+
+- name: '{{ ansible_os_family }} | Install qemu-system-x86'
+  ansible.builtin.yum:
+    name:
+      - qemu-system-x86
+      - seabios
+    state: present
+    enablerepo: 'epel'
+  ignore_errors: '{{ ansible_check_mode }}'
+  when: (lisoq_qemu_install)
+
+- name: '{{ ansible_os_family }} | Install rsync'
+  ansible.builtin.yum:
+    name:
+      - rsync
+    state: present
+  when: (lisoq_iso_file_local) or (lisoq_qemu_static_custom_local)
+
+- name: '{{ ansible_os_family }} | Run commands before install iptables'
+  ansible.builtin.systemd:
+    name: firewalld
+    state: stopped
+  ignore_errors: true
+  when: (lisoq_firewall_acl_enable)
+
+- name: '{{ ansible_os_family }} | Install iptables'
+  ansible.builtin.yum:
+    name:
+      - iptables
+      - iptables-services
+#      - iptables-utils
+  when: (lisoq_firewall_acl_enable)
+
+# - name: Starting iptables services after installation
+#  ansible.builtin.service:
+#    name: '{{ services }}'
+#    state: started
+#    enabled: false
+#  with_items:
+#    - iptables
+#    - ip6tables
+#  loop_control:
+#    loop_var: services
+#  ignore_errors: true
+#  when: (lisoq_firewall_acl_enable)

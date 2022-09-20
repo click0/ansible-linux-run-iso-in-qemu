@@ -1,6 +1,6 @@
 ---
 
-- name: Install gpg, ca-certificates
+- name: '{{ ansible_os_family }} | Install gpg, ca-certificates'
   apt:
     name:
       - gpg
@@ -8,7 +8,7 @@
     update_cache: true
   when: (lisoq_qemu_install)
 
-- name: Install qemu-system-x86
+- name: '{{ ansible_os_family }} | Install qemu-system-x86'
   apt:
     name:
       - qemu-system-x86
@@ -20,10 +20,12 @@
       - rsync
   when: (lisoq_iso_file_local) or (lisoq_qemu_static_custom_local)
 
-- name: Install iptables
+- name: '{{ ansible_os_family }} | Install iptables'
   apt:
     name:
       - iptables
+    state: 'present'
+    install_recommends: false
   when: (lisoq_firewall_acl_enable)
 
 # - name: Starting iptables services after installation

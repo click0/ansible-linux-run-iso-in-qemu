@@ -1,0 +1,5 @@
+---
+
+# Example showing how to end the play for specific targets
+- name: End the play for unsupported hosts
+  ansible.builtin.meta: end_host

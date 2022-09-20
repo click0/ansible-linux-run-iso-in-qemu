@@ -1,0 +1,76 @@
+---
+
+- name: If lisoq_ramdisk_package_enable enabled
+  block:
+
+    - name: 'Check mounted path {{ __var_cache_package_path }}'
+      set_fact:
+        lisoq_ramdisk_package_mounted: true
+      when: (ansible_mounts | selectattr('mount', 'equalto', __var_cache_package_path) | list | length > 0)
+
+    - name: 'Calculate the *raw* size of the directory {{ __var_cache_package_path }}'
+      command: du -sk {{ __var_cache_package_path }}
+      register: '__var_cache_package_path_size_raw' # in KiBytes!
+      check_mode: false
+
+    - name: 'Calculate the size of the directory {{ __var_cache_package_path }}'
+      set_fact:
+        __var_cache_package_path_size: '{{ (__var_cache_package_path_size_raw.stdout.split()[0] | int > 10000) |
+          ternary(__var_cache_package_path_size_raw.stdout.split()[0], __ramdisk_package_default_size) }}'
+
+    - name: 'Copy files from directory {{ __var_cache_package_path }} to {{ __var_cache_package_path }}.old'
+      copy:
+        src: '{{ __var_cache_package_path }}/'
+        dest: '{{ __var_cache_package_path }}.old'
+        remote_src: true
+        directory_mode: true
+        mode: '0755'
+
+    - name: 'Remove directory {{ __var_cache_package_path }}'
+      ansible.builtin.file:
+        path: '{{ __var_cache_package_path }}'
+        state: absent
+
+    - name: 'Create a directory {{ __var_cache_package_path }} if it does not exist'
+      ansible.builtin.file:
+        path: '{{ __var_cache_package_path }}'
+        state: directory
+        mode: '0755'
+
+    - name: Сalculate the size of the ram-disk partition for packages.
+      set_fact:
+        lisoq_ramdisk_package_size: '{{ ((((__var_cache_package_path_size | int) / 1024)|int) + __ramdisk_package_default_size|int)|int }}'
+      when: (lisoq_ramdisk_package_size is not defined) or (not lisoq_ramdisk_package_size)
+
+    - name: 'Ensure ramdisk {{ __var_cache_package_path }} is mounted'
+      ansible.posix.mount:
+        path: '{{ __var_cache_package_path }}'
+        src: tmpfs
+        fstype: tmpfs
+        opts: 'size={{ lisoq_ramdisk_package_size | int }}M'
+        state: remounted
+      when: (lisoq_ramdisk_package_enable) and (lisoq_ramdisk_package_mounted)
+
+    - name: 'Ensure ramdisk {{ __var_cache_package_path }} is not mounted'
+      ansible.posix.mount:
+        path: '{{ __var_cache_package_path }}'
+        src: tmpfs
+        fstype: tmpfs
+        opts: 'size={{ lisoq_ramdisk_package_size }}M'
+        state: mounted
+      when: (lisoq_ramdisk_package_enable)
+
+    - name: 'Copy files from directory {{ __var_cache_package_path }}.old to {{ __var_cache_package_path }}'
+      copy:
+        src: '{{ __var_cache_package_path }}.old/'
+        dest: '{{ __var_cache_package_path }}'
+        remote_src: true
+        directory_mode: true
+        mode: '0755'
+      ignore_errors: '{{ ansible_check_mode }}'
+
+    - name: 'Remove directory {{ __var_cache_package_path }}.old'
+      ansible.builtin.file:
+        path: '{{ __var_cache_package_path }}.old'
+        state: absent
+  when: (lisoq_ramdisk_package_enable)
