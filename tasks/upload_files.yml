@@ -3,22 +3,43 @@
 # Upload (from Ansible host)
 # In order not to cache in /root/.ansible/tmp... if there is not enough free disk space.
 
-- name: Upload file 'lisoq_iso_file_local'
+- name: Upload file 'lisoq_iso_file_local' via ssh
+  # https://stackoverflow.com/a/71651490/12646191
+  command: >-
+    rsync --rsh="sshpass -p {{ ansible_ssh_password }} ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -l
+    {{- ansible_ssh_user | default('root') -}}
+    " {{ lisoq_iso_file_local }} {{ ansible_ssh_host }}:{{ lisoq_ramdisk_path }}/
+  ignore_errors: '{{ ansible_check_mode }}'
+  delegate_to: 127.0.0.1
+  when: (ansible_ssh_password is defined) and (lisoq_iso_file_local)
+
+- name: Upload file 'lisoq_iso_file_local' via module 'synchronize'.
   ansible.posix.synchronize:
     src: '{{ lisoq_iso_file_local }}'
     dest: '{{ lisoq_ramdisk_path }}'
     # (default) overwrite on source change
     copy_links: true # Copy symlinks as the item
-  ignore_errors: true
-  when: (lisoq_iso_file_local)
+  ignore_errors: '{{ ansible_check_mode }}'
+  when: (ansible_ssh_password is not defined) and (lisoq_iso_file_local)
 
-- name: Upload file 'lisoq_qemu_static_custom_local'.
+- name: Upload file 'lisoq_qemu_static_custom_local' via ssh.
+  command: >-
+    rsync --rsh="sshpass -p {{ ansible_ssh_password }} ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -l
+    {{- ansible_ssh_user | default('root') -}}
+    " {{ lisoq_qemu_static_custom_local }} {{ ansible_ssh_host }}:{{ lisoq_ramdisk_path }}/
+  check_mode: false
+  delegate_to: 127.0.0.1
+  when: (ansible_ssh_password is defined) and (lisoq_qemu_static_custom_enable) and (lisoq_qemu_static_custom_local)
+
+- name: Upload file 'lisoq_qemu_static_custom_local' via module 'synchronize'.
   ansible.posix.synchronize:
     src: '{{ lisoq_qemu_static_custom_local }}'
     dest: '{{ lisoq_ramdisk_path }}'
     copy_links: true
-  ignore_errors: true
-  when: (lisoq_qemu_static_custom_enable) and (lisoq_qemu_static_custom_local)
+  check_mode: false
+  when: ((ansible_ssh_password is not defined) or (not ansible_ssh_password)) and
+        (lisoq_qemu_static_custom_enable) and
+        (lisoq_qemu_static_custom_local)
 
 # Download files (from Internet)
 
