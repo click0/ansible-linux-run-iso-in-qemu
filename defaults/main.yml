@@ -43,11 +43,13 @@ lisoq_iso_file_ssh_port: '22' # sshd port that accepts connections _inside_ ISO.
 lisoq_ramdisk_enable: false
 lisoq_ramdisk_path: '/mnt'
 lisoq_ramdisk_another_path: '/tmp'
-lisoq_ramdisk_existed: false
-lisoq_ramdisk_mounted: false
-lisoq_ramdisk_size: '300' # in MiB (mebibyte)
+lisoq_ramdisk_size: '250' # in MiB (mebibyte)
 
-lisoq_total_need_ram: "( {{ lisoq_ramdisk_size | int + lisoq_qemu_ram | int }} | default('300') )"
+lisoq_ramdisk_package_enable: false
+lisoq_ramdisk_package_size: '' # in MiB (mebibyte) - autodetect
+lisoq_ramdisk_package_purge: false
+
+lisoq_total_need_ram: '' # (lisoq_ramdisk_size + lisoq_qemu_ram) or min 250MiB - autodetect
 
 lisoq_firewall_acl_enable: false # ACL to the ports {{ lisoq_qemu_args_port_ssh }} and {{ lisoq_qemu_args_port_vnc }}
 lisoq_firewall_acl_ipv4_white:

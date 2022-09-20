@@ -27,3 +27,17 @@
       skip: true
   loop_control:
     loop_var: platform_tasks
+
+# post install
+- name: 'Post install packages for current OS - {{ ansible_os_family }}'
+  include_tasks: '{{ platform_tasks }}'
+  with_first_found:
+    - files:
+        - '{{ ansible_os_family }}.yml'
+        - '{{ ansible_distribution }}.yml'
+        - not-supported.yml
+      paths:
+        - '{{ role_path }}/tasks/post-install'
+      skip: true
+  loop_control:
+    loop_var: platform_tasks

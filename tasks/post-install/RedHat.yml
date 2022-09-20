@@ -1,0 +1,16 @@
+---
+
+- name: Unmount ramdisk {{ __var_cache_package_path }} if is mounted
+  ansible.posix.mount:
+    path: '{{ __var_cache_package_path }}'
+    state: unmounted
+  when: (lisoq_ramdisk_package_enable) and (lisoq_ramdisk_package_purge)
+
+- name: Ensure ramdisk {{ __var_cache_package_path }} is mounted
+  ansible.posix.mount:
+    path: '{{ __var_cache_package_path }}'
+    src: tmpfs
+    fstype: tmpfs
+    opts: 'size=1M'
+    state: mounted
+  when: (lisoq_ramdisk_package_enable) and (lisoq_ramdisk_package_purge)
