@@ -27,15 +27,23 @@
 #   - lisoq_iso_file_remote
 #   - lisoq_iso_file_url
 
+- name: Set the required amount of RAM (intermediate value).
+  set_fact:
+    __summ_ram: "{{ ((lisoq_ramdisk_size | int + lisoq_qemu_ram | int) | int) | default(__need_ram) }}"
+
+- name: Set the required amount of RAM.
+  set_fact:
+    lisoq_total_need_ram: "{{ ((__summ_ram | int) < (__need_ram | int)) | ternary(__need_ram, __summ_ram) }}"
+
 - name: We use fail if we do not have enough RAM
   fail:
     msg: "not enough RAM!"
-  when: ( ansible_memory_mb.real.total < 512 ) or ( ansible_memory_mb.real.total < (lisoq_total_need_ram | int) )
+  when: (ansible_memory_mb.real.total < 512) or (ansible_memory_mb.real.total < (lisoq_total_need_ram | int))
 
 - name: We use fail if we do not have enough RAM for QEMU
   fail:
     msg: "QEMU need more RAM ( > 256 MiB )!"
-  when: ( (lisoq_qemu_ram | int) < 256 ) or ( ansible_memory_mb.real.free < 256 )
+  when: ((lisoq_qemu_ram | int) < 256 ) or (ansible_memory_mb.nocache.free < 256)
 
 - name: Set the priority for the variable lisoq_qemu_static_enable
   set_fact:
