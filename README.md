@@ -23,13 +23,18 @@ To increase security for access to the system in QEMU, you can specify a whiteli
 ## Requirements
 
 Linux system Debian or CentOS.  
-Installed packages:
+Installed packages on target hosts:
   - python3
   - python3-apt
+    
+Installed packages on the control node (Ansible):
+  - rsync
+  - sshpass  
+If you use password login to target hosts via `ssh`
 
 ## Variables
 
-See the `defaults/main.yml` and examples in vars:
+See the [`defaults/main.yml`](defaults/main.yml) and examples in vars:
 
     lisoq_qemu_enable: false
 Do I need to use and run QEMU. Without this option, the role can download the ISO image and configure the firewall.
@@ -83,10 +88,20 @@ You can specify your own list of block devices:
 <br>
 
     lisoq_qemu_exclude_disk:
-    - 'fd0'
-    - 'sr0'
+      - 'fd0'
+      - 'sr0'
 
 List of block disk devices to be excluded from the `lisoq_qemu_disk` list. The exclusion list usually contains FDD and CD-ROM devices.
+You can override the variable yourself and add your own block devices to the exclusion list.
+
+    lisoq_qemu_exclude_disk_regular_list:
+      - 'fd'
+      - 'sr'
+      - 'dm-'
+      - 'loop'
+
+A list of block devices without a numeric suffix to be excluded from the list for intra-OS connection in QEMU.
+Based on the `lisoq_qemu_exclude_disk_regular_list` variable inside the role, a regular expression will be generated.
 
     lisoq_qemu_boot_cd: true
 Whether to boot QEMU from CD-ROM (from our downloaded ISO image file `lisoq_iso_file_...` ).
@@ -112,23 +127,26 @@ Sshd port that accepts connections _inside_ ISO image.
     lisoq_ramdisk_enable: false
 Use (and create) RAM-disk partitions on the target system (before running QEMU).
 
-    lisoq_ramdisk_location: '/mnt'
+    lisoq_ramdisk_path: '/mnt'
 The preferred path for the RAM-disk partition.
 
-    lisoq_ramdisk_another_location: '/tmp'
+    lisoq_ramdisk_another_path: '/tmp'
 The alternative path for a RAM-disk partition if it is already in use internally. Subsequently, we will expand it to the desired size.
 
-    lisoq_ramdisk_existed: false
-Detect flag if RAM-disk partition is already in use. Service (local) variable.
-
-    lisoq_ramdisk_mounted: false
-Detect flag if RAM-disk partition is already in mounted. Service (local) variable.
-
-    lisoq_ramdisk_size: '300'
+    lisoq_ramdisk_size: '250'
 The size of the RAM-disk partition in MiB (mebibytes).
 
-    lisoq_total_need_ram: "( {{ lisoq_ramdisk_size | int + lisoq_qemu_ram | int }} | default('300') )" 
+    lisoq_total_need_ram: '' # (lisoq_ramdisk_size + lisoq_qemu_ram) or min 250MiB - autodetect 
 The minimum amount of RAM on the target system in MiB (mebibytes). The sum of two components - `lisoq_ramdisk_size` and `lisoq_qemu_ram`.
+
+    lisoq_ramdisk_package_enable: false
+Create a RAM disk to store packages on the system in directory `/var/cache/yum` or `/var/cache/apt`. Not all LiveCD systems have extra 200-400 MB to store the package base, that's why we use RAM-disk.
+
+    lisoq_ramdisk_package_size: '' # in MiB (mebibyte) - autodetect
+The amount of MB of RAM that we can allocate for the correct installation of packages on the system. Empirically, it was found that you need a minimum of 300 MB. Afterwards, we can clean up this directory.
+
+    lisoq_ramdisk_package_purge: false
+Clean up the packages directory. Use this option very carefully if you have to install additional packages to the system after completing the role.
 
     lisoq_firewall_acl_enable: false 
 Allow ACLs to whitelist IP's/net's and some listening ports (for example, `{{ lisoq_qemu_args_port_ssh }}` and `{{ lisoq_qemu_args_port_vnc }}`). Connections from other IPs to these ports are dropped. Whitelists are separate for IPv4 and IPv6 networks.
@@ -140,12 +158,6 @@ Default white list for IPv4 networks.
     lisoq_firewall_acl_ipv6_white:
       - '::1/128'
 Default white list for IPv6 networks.
-
-    lisoq_firewall_acl_ports:
-      - '{{ lisoq_qemu_args_port_ssh | default(omit) }}'
-      - '{{ lisoq_qemu_args_port_rdp | default(omit) }}'
-      - '{{ lisoq_qemu_args_port_vnc | default(omit) }}'
-Default port ACL for a firewall.
 
     lisoq_qemu_args: '
     -net nic
@@ -164,7 +176,7 @@ List of required command line arguments to run QEMU.
 shell> ansible-galaxy role install click0.linux_run_iso_in_qemu
 ```
 
-2) Look variables, e.g. in `defaults/main.yml`
+2) Look variables, e.g. in [`defaults/main.yml`](defaults/main.yml)
 
 You can override them in the playbook and inventory.
 
@@ -182,6 +194,11 @@ You can override them in the playbook and inventory.
     lisoq_qemu_enable: true
     lisoq_qemu_static_custom_enable: true
     lisoq_iso_file_url: 'https://mfsbsd.vx.sk/files/iso/12/amd64/mfsbsd-12.2-RELEASE-amd64.iso'
+    lisoq_qemu_vnc_type: 'share'
+    lisoq_qemu_boot_once_cd: false
+    lisoq_qemu_ram: '650'
+    lisoq_ramdisk_package_enable: false
+    lisoq_ramdisk_package_purge: false
     lisoq_firewall_acl_ipv4_white:
       - '127.0.0.0/8'
       - '10.0.0.0/8'
@@ -216,7 +233,6 @@ You can override them in the playbook and inventory.
 
 - [ ] Test on a Linux LiveCD based:
     - Debian 
-    - CentOS
     - Rocky Linux
     - Alpine
     - ArchLinux
@@ -226,6 +242,7 @@ You can override them in the playbook and inventory.
 ## Tested
 
 - [x] Freshly installed on HDD a Debian "bullseye" 11
+- [x] On running from LiveCD Centos 7
 
 ## Dependencies
 
