@@ -1,12 +1,5 @@
 ---
 
-
-- name: Install iptables
-  apt:
-    name: 'iptables'
-    state: 'present'
-    install_recommends: false
-
 # IPv4
 - name: 'Insert a INPUT rule to whitelist IPv4 in iptables to ports: {{ lisoq_firewall_acl_ports }}'
   ansible.builtin.iptables:

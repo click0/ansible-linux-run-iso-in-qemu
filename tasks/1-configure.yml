@@ -136,6 +136,12 @@
       hostfwd=tcp::{{ lisoq_qemu_args_port_rdp }}-:{{ lisoq_qemu_args_port_rdp }}
   when: (lisoq_qemu_args_port_ssh) and (lisoq_qemu_args_port_rdp)
 
+- name: Filtering the 'lisoq_firewall_acl_ports' variable from empty values.
+  set_fact:
+    # https://stackoverflow.com/a/60526774/12646191
+    lisoq_firewall_acl_ports: "{{ lisoq_firewall_acl_ports | select() | reject('match', '^$') | list }}"
+  when: (lisoq_firewall_acl_ports)
+
 - name: Add keyboard layot option to qemu_args.
   set_fact:
     lisoq_qemu_args: '{{ lisoq_qemu_args }} -k en-us'
