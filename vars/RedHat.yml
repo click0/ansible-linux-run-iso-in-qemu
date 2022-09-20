@@ -1,0 +1,17 @@
+---
+__package: yum
+__var_cache_package_path: '/var/cache/{{ __package }}'
+__ramdisk_package_default_size: "{{ (lisoq_ramdisk_package_size | int < 100) | ternary('300', lisoq_ramdisk_package_size) }}"
+
+__need_ram: '300'
+
+lisoq_total_need_ram: '{{ (lisoq_total_need_ram | int < __need_ram) | ternary(__need_ram, lisoq_total_need_ram) }}'
+
+lisoq_ramdisk_package_mounted: false
+lisoq_ramdisk_existed: false
+lisoq_ramdisk_mounted: false
+
+lisoq_firewall_acl_ports:
+  - '{{ lisoq_qemu_args_port_ssh | default(omit) }}'
+  - '{{ lisoq_qemu_args_port_rdp | default(omit) }}'
+  - '{{ lisoq_qemu_args_port_vnc | default(omit) }}'
