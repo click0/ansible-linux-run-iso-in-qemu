@@ -27,6 +27,11 @@ lisoq_qemu_disk: '' # default - autodetect
 lisoq_qemu_exclude_disk:
   - 'fd0'
   - 'sr0'
+lisoq_qemu_exclude_disk_regular_list:
+  - 'fd'
+  - 'sr'
+  - 'dm-'
+  - 'loop'
 lisoq_qemu_boot_cd: true
 lisoq_qemu_boot_once_cd: true
 

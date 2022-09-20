@@ -165,9 +165,15 @@
   set_fact:
     lisoq_qemu_args: '{{ lisoq_qemu_args }} -m {{ lisoq_qemu_ram }}M'
 
+- name: Create a regular variable lisoq_qemu_exclude_disk_regular.
+  set_fact:
+    lisoq_qemu_exclude_disk_regular: '^({{ lisoq_qemu_exclude_disk_regular_list | join("|") }})[0-9]+'
+  when: (not lisoq_qemu_disk)
+
 - name: Add a list of disk devices based on the gathered facts found.
   set_fact:
-    lisoq_qemu_disk: '{{ ansible_devices.keys() | difference(lisoq_qemu_exclude_disk) | list }}'
+    lisoq_qemu_disk: '{{ ansible_devices.keys() | reject("match", lisoq_qemu_exclude_disk_regular)
+      | difference(lisoq_qemu_exclude_disk) | list }}'
   when: (not lisoq_qemu_disk)
 
 - name: Detect disk size largest 2TiB
