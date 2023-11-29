@@ -32,6 +32,8 @@ lisoq_qemu_exclude_disk_regular_list:
   - 'sr'
   - 'dm-'
   - 'loop'
+  - 'ram'
+  - 'nbd'
 lisoq_qemu_boot_cd: true
 lisoq_qemu_boot_once_cd: true
 
