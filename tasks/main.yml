@@ -1,8 +1,7 @@
 ---
 
-# temporarily disable
-# - name: Install the minimum required software for further work.
-#   include: 0-pre-install.yml
+- name: Install the minimum required software for further work.
+  include: 0-pre-install.yml
 
 - name: Configure role.
   include_tasks: 1-configure.yml
