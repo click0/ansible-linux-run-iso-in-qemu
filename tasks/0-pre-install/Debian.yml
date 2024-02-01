@@ -73,4 +73,4 @@
       ansible.builtin.file:
         path: '{{ __var_cache_package_path }}.old'
         state: absent
-  when: (lisoq_ramdisk_package_enable)
+  when: (lisoq_ramdisk_package_enable) and (not lisoq_ramdisk_package_mounted)

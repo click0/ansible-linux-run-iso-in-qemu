@@ -10,7 +10,7 @@
 
     - name: 'Calculate the *raw* size of the directory {{ __var_cache_package_path }}'
       command: du -sk {{ __var_cache_package_path }}
-      register: __var_cache_package_path_size_raw
+      register: '__var_cache_package_path_size_raw' # in KiBytes!
       check_mode: false
 
     - name: 'Calculate the size of the directory {{ __var_cache_package_path }}'
@@ -73,4 +73,4 @@
       ansible.builtin.file:
         path: '{{ __var_cache_package_path }}.old'
         state: absent
-  when: (lisoq_ramdisk_package_enable)
+  when: (lisoq_ramdisk_package_enable) and (not lisoq_ramdisk_package_mounted)
