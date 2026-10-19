@@ -217,7 +217,7 @@
 - name: "We check 'lisoq_qemu_args_port_vnc' for correctness."
   set_fact:
     lisoq_qemu_args_port_vnc: '5901'
-  when: (lisoq_qemu_args_port_vnc < '5900')
+  when: (lisoq_qemu_args_port_vnc | int < 5900)
 
 - name: Add start VNC to qemu_args.
   set_fact:
