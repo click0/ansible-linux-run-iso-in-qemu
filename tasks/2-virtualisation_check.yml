@@ -10,43 +10,43 @@
     awk -F: '/^flags/ {print $2; exit}' /proc/cpuinfo
   register: lisoq_cpu_flags_cmd
   changed_when: false
+  check_mode: false
 
 # Extract the flags into a list variable named `cpu_flags`.
 - name: set cpu flags fact
   set_fact:
     lisoq_cpu_flags: "{{ lisoq_cpu_flags_cmd.stdout.split() }}"
 
-# Identify the processor manufacturer by looking for "Intel" or "AMD"
-# in `/proc/cpuinfo`.
-- name: check if Intel processor
-  command: grep -q Intel /proc/cpuinfo
-  ignore_errors: true
-  register: lisoq_cpu_is_intel
+# Immediately load the appropriate kvm vendor module: `vmx` is Intel VT-x, `svm` is AMD-V.
+# Without these flags (e.g. a VPS without nested virtualization) QEMU runs without KVM,
+# so a failed modprobe must not stop the role.
+- name: load kvm module [intel]
+  command: modprobe kvm_intel
   changed_when: false
+  failed_when: false
+  when: "'vmx' in lisoq_cpu_flags"
 
-- name: check if AMD processor
-  command: grep -q AMD /proc/cpuinfo
-  ignore_errors: true
-  register: lisoq_cpu_is_amd
+- name: load kvm module [amd]
+  command: modprobe kvm_amd
   changed_when: false
+  failed_when: false
+  when: "'svm' in lisoq_cpu_flags"
+
+- name: check /dev/kvm
+  ansible.builtin.stat:
+    path: /dev/kvm
+  register: lisoq_dev_kvm
 
 # Enable [nested virtualization][nested]. Set the `lisoq_nested_virt` fact
-# to `true` if we have Intel processors and the `vmx` flag or we have
-# AMD processors and the `svm` flag.
+# to `true` if the CPU has the `vmx` or `svm` flag and /dev/kvm is available.
 #
 # [nested]: https://www.kernel.org/doc/Documentation/virtual/kvm/nested-vmx.txt
 - name: set lisoq_nested_virt fact
   set_fact:
     lisoq_nested_virt: >-
-      {{ ((lisoq_cpu_is_intel is success and 'vmx' in lisoq_cpu_flags)
-      or (lisoq_cpu_is_amd is success and 'svm' in lisoq_cpu_flags))|bool }}
-  when: (lisoq_cpu_flags is defined) and (lisoq_cpu_flags is truthy)
+      {{ (('vmx' in lisoq_cpu_flags) or ('svm' in lisoq_cpu_flags)) and lisoq_dev_kvm.stat.exists }}
 
-# Immediately load the appropriate kvm vendor module.
-- name: load kvm module [intel]
-  command: modprobe kvm_intel
-  when: (lisoq_cpu_is_intel is defined) and (lisoq_cpu_is_intel is success)
-
-- name: load kvm module [amd]
-  command: modprobe kvm_amd
-  when: (lisoq_cpu_is_amd is defined) and (lisoq_cpu_is_amd is success)
+- name: KVM is not available
+  debug:
+    msg: 'KVM is not available (no vmx/svm CPU flag or no /dev/kvm), QEMU will run without hardware acceleration.'
+  when: (not lisoq_nested_virt | bool)
