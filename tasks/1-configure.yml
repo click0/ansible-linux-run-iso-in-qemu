@@ -190,12 +190,16 @@
       | difference(lisoq_qemu_exclude_disk) | list }}'
   when: (not lisoq_qemu_disk)
 
+- name: Reset the large disk flag
+  set_fact:
+    lisoq_qemu_disk_large_detect: false
+
 - name: Detect disk size largest 2TiB
   set_fact:
-    lisoq_qemu_disk_large_detect: >-
-      {{ ((ansible_devices[item].sectors|int * ansible_devices[item].sectorsize|int) > (2 * 1024 * 1024 * 1024 * 1024 ))
-          | ternary(true, false) }}
+    lisoq_qemu_disk_large_detect: true
   loop: '{{ lisoq_qemu_disk | list }}'
+  when: >-
+    (ansible_devices[item].sectors|int * ansible_devices[item].sectorsize|int) > (2 * 1024 * 1024 * 1024 * 1024)
 
 - name: Add a list of disk device options to qemu_args.
   set_fact:
