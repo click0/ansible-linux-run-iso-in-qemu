@@ -99,6 +99,10 @@ You can override the variable yourself and add your own block devices to the exc
       - 'sr'
       - 'dm-'
       - 'loop'
+      - 'ram'
+      - 'zram'
+      - 'nbd'
+      - 'md'
 
 A list of block devices without a numeric suffix to be excluded from the list for intra-OS connection in QEMU.
 Based on the `lisoq_qemu_exclude_disk_regular_list` variable inside the role, a regular expression will be generated.

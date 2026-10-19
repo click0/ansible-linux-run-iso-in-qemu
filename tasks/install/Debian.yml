@@ -6,19 +6,19 @@
       - gpg
       - ca-certificates
     update_cache: true
-  when: (lisoq_qemu_install)
+  when: (lisoq_qemu_install | bool)
 
 - name: '{{ ansible_os_family }} | Install qemu-system-x86'
   apt:
     name:
       - qemu-system-x86
-  when: (lisoq_qemu_install)
+  when: (lisoq_qemu_install | bool)
 
 - name: Install rsync
   apt:
     name:
       - rsync
-  when: (lisoq_iso_file_local) or (lisoq_qemu_static_custom_local)
+  when: (lisoq_iso_file_local is truthy) or (lisoq_qemu_static_custom_local is truthy)
 
 - name: '{{ ansible_os_family }} | Install iptables'
   apt:
@@ -26,7 +26,7 @@
       - iptables
     state: 'present'
     install_recommends: false
-  when: (lisoq_firewall_acl_enable)
+  when: (lisoq_firewall_acl_enable | bool)
 
 # - name: Starting iptables services after installation
 #  ansible.builtin.systemd:

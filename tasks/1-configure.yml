@@ -48,33 +48,34 @@
 - name: Set the priority for the variable lisoq_qemu_static_enable
   set_fact:
     lisoq_qemu_install: false
-  when: (lisoq_qemu_static_custom_enable)
+  when: (lisoq_qemu_static_custom_enable | bool)
 
 - name: Clear some variables if not active lisoq_qemu_static_custom_enable.
   set_fact:
     lisoq_qemu_static_custom_url: ''
     lisoq_qemu_static_custom_local: ''
-  when: (not lisoq_qemu_static_custom_enable)
+  when: (not lisoq_qemu_static_custom_enable | bool)
 
 - name: Set the priority for the variable lisoq_qemu_static_custom_local.
   set_fact:
     lisoq_qemu_static_custom_url: ''
-  when: (lisoq_qemu_static_custom_enable) and (lisoq_qemu_static_custom_local|length > 0)
+  when: (lisoq_qemu_static_custom_enable | bool) and (lisoq_qemu_static_custom_local|length > 0)
 
 - name: Determine the number of CPUs
   set_fact:
     lisoq_qemu_cpu: '{{ ansible_processor_vcpus | default(1) }}'
+  when: (lisoq_qemu_cpu is falsy)
 
 - name: Set the priority for the variable lisoq_iso_file_local
   set_fact:
-    lisoq_iso_remote_file: false
+    lisoq_iso_file_remote: false
     lisoq_iso_file_url: false
-  when: (lisoq_iso_file_local)
+  when: (lisoq_iso_file_local is truthy)
 
 - name: Set the priority for the variable lisoq_iso_file_remote
   set_fact:
     lisoq_iso_file_url: false
-  when: (lisoq_iso_file_remote)
+  when: (lisoq_iso_file_remote is truthy)
 
 - name: if RamDISK enabled
   block:
@@ -92,7 +93,7 @@
       set_fact:
         lisoq_ramdisk_mounted: true
       when: >-
-        (not lisoq_ramdisk_mounted) and
+        (not lisoq_ramdisk_mounted | bool) and
         (ansible_mounts | selectattr('mount', 'equalto', lisoq_ramdisk_path) | list | length > 0)
 
     - name: Ensure ramdisk directory exists
@@ -100,7 +101,7 @@
         dest: '{{ lisoq_ramdisk_path }}'
         mode: '01777'
         state: directory
-      when: (not lisoq_ramdisk_mounted)
+      when: (not lisoq_ramdisk_mounted | bool)
 
     - name: Ensure ramdisk lisoq_ramdisk_path is mounted
       ansible.posix.mount:
@@ -109,7 +110,7 @@
         fstype: tmpfs
         opts: 'size={{ lisoq_ramdisk_size }}M'
         state: remounted
-      when: (lisoq_ramdisk_mounted)
+      when: (lisoq_ramdisk_mounted | bool)
 
     - name: Ensure ramdisk not /tmp is mounted
       ansible.posix.mount:
@@ -118,20 +119,20 @@
         fstype: tmpfs
         opts: 'size={{ lisoq_ramdisk_size }}M'
         state: mounted
-      when: (not lisoq_ramdisk_mounted)
-  when: (lisoq_ramdisk_enable)
+      when: (not lisoq_ramdisk_mounted | bool)
+  when: (lisoq_ramdisk_enable | bool)
 
 # qemu_args
 
 - name: Add net user options to qemu_args. Only port {{ lisoq_qemu_args_port_ssh }}
   set_fact:
     lisoq_qemu_args: '{{ lisoq_qemu_args }} -net user,hostfwd=tcp::{{ lisoq_qemu_args_port_ssh }}-:{{ lisoq_iso_file_ssh_port }}'
-  when: (lisoq_qemu_args_port_ssh) and (not lisoq_qemu_args_port_rdp)
+  when: (lisoq_qemu_args_port_ssh is truthy) and (lisoq_qemu_args_port_rdp is falsy)
 
 - name: Add net user options to qemu_args. Only port {{ lisoq_qemu_args_port_rdp }}
   set_fact:
     lisoq_qemu_args: '{{ lisoq_qemu_args }} -net user,hostfwd=tcp::{{ lisoq_qemu_args_port_rdp }}-:{{ lisoq_qemu_args_port_rdp }}'
-  when: (not lisoq_qemu_args_port_ssh) and (lisoq_qemu_args_port_rdp)
+  when: (lisoq_qemu_args_port_ssh is falsy) and (lisoq_qemu_args_port_rdp is truthy)
 
 - name: Add net user options to qemu_args. Both ports - {{ lisoq_qemu_args_port_ssh }} and {{ lisoq_qemu_args_port_rdp }}
   set_fact:
@@ -142,34 +143,39 @@
       hostfwd=tcp::{{ lisoq_qemu_args_port_ssh }}-:{{ lisoq_iso_file_ssh_port }},
       {#- -#}
       hostfwd=tcp::{{ lisoq_qemu_args_port_rdp }}-:{{ lisoq_qemu_args_port_rdp }}
-  when: (lisoq_qemu_args_port_ssh) and (lisoq_qemu_args_port_rdp)
+  when: (lisoq_qemu_args_port_ssh is truthy) and (lisoq_qemu_args_port_rdp is truthy)
 
 - name: Filtering the 'lisoq_firewall_acl_ports' variable from empty values.
   set_fact:
     # https://stackoverflow.com/a/60526774/12646191
     lisoq_firewall_acl_ports: "{{ lisoq_firewall_acl_ports | select() | reject('match', '^$') | list }}"
-  when: (lisoq_firewall_acl_ports)
+  when: (lisoq_firewall_acl_ports is truthy)
 
 - name: Add keyboard layot option to qemu_args.
   set_fact:
     lisoq_qemu_args: '{{ lisoq_qemu_args }} -k en-us'
-  when: (lisoq_qemu_install)
+  when: (lisoq_qemu_install | bool)
 
 - name: Add keyboard layot option to qemu_args (if using qemu-static-custom).
   set_fact:
     # broken keymaps
     lisoq_qemu_args: '{{ lisoq_qemu_args }} -k keymaps/common'
-  when: (not lisoq_qemu_install) and ((lisoq_qemu_static_custom_local) or (lisoq_qemu_static_custom_url))
+  when: (not lisoq_qemu_install | bool) and ((lisoq_qemu_static_custom_local is truthy) or (lisoq_qemu_static_custom_url is truthy))
 
 - name: Add the local ISO option to qemu_args.
   set_fact:
     lisoq_qemu_args: '{{ lisoq_qemu_args }} -cdrom {{ lisoq_ramdisk_path }}/{{ lisoq_iso_file_local | basename }}'
-  when: (lisoq_iso_file_local)
+  when: (lisoq_iso_file_local is truthy)
+
+- name: Add the remote ISO option to qemu_args.
+  set_fact:
+    lisoq_qemu_args: '{{ lisoq_qemu_args }} -cdrom {{ lisoq_iso_file_remote }}'
+  when: (lisoq_iso_file_remote is truthy)
 
 - name: Add an ISO URL option to qemu_args. We will download this ISO later.
   set_fact:
     lisoq_qemu_args: '{{ lisoq_qemu_args }} -cdrom {{ lisoq_ramdisk_path }}/{{ lisoq_iso_file_url | basename }}'
-  when: (lisoq_iso_file_url)
+  when: (lisoq_iso_file_url is truthy)
 
 - name: Add the count of CPU to qemu_args.
   set_fact:
@@ -182,32 +188,36 @@
 - name: Create a regular variable lisoq_qemu_exclude_disk_regular.
   set_fact:
     lisoq_qemu_exclude_disk_regular: '^({{ lisoq_qemu_exclude_disk_regular_list | join("|") }})[0-9]+'
-  when: (not lisoq_qemu_disk)
+  when: (lisoq_qemu_disk is falsy)
 
 - name: Add a list of disk devices based on the gathered facts found.
   set_fact:
     lisoq_qemu_disk: '{{ ansible_devices.keys() | reject("match", lisoq_qemu_exclude_disk_regular)
       | difference(lisoq_qemu_exclude_disk) | list }}'
-  when: (not lisoq_qemu_disk)
+  when: (lisoq_qemu_disk is falsy)
+
+- name: Reset the large disk flag
+  set_fact:
+    lisoq_qemu_disk_large_detect: false
 
 - name: Detect disk size largest 2TiB
   set_fact:
-    lisoq_qemu_disk_large_detect: >-
-      {{ ((ansible_devices[item].sectors|int * ansible_devices[item].sectorsize|int) > (2 * 1024 * 1024 * 1024 * 1024 ))
-          | ternary(true, false) }}
+    lisoq_qemu_disk_large_detect: true
   loop: '{{ lisoq_qemu_disk | list }}'
+  when: >-
+    (ansible_devices[item].sectors|int * ansible_devices[item].sectorsize|int) > (2 * 1024 * 1024 * 1024 * 1024)
 
 - name: Add a list of disk device options to qemu_args.
   set_fact:
     lisoq_qemu_args: '{{ lisoq_qemu_args }}
  -drive ''file=/dev/{{ lisoq_qemu_disk | join(",format=raw'' -drive ''file=/dev/") }},format=raw''
 '
-  when: (lisoq_qemu_disk)
+  when: (lisoq_qemu_disk is truthy)
 
 - name: "We check 'lisoq_qemu_args_port_vnc' for correctness."
   set_fact:
     lisoq_qemu_args_port_vnc: '5901'
-  when: (lisoq_qemu_args_port_vnc < '5900')
+  when: (lisoq_qemu_args_port_vnc | int < 5900)
 
 - name: Add start VNC to qemu_args.
   set_fact:
@@ -222,4 +232,4 @@
 - name: Add option to boot qemu from ISO to qemu_args.
   set_fact:
     lisoq_qemu_args: '{{ lisoq_qemu_args }} -boot {{ (lisoq_qemu_boot_once_cd) | ternary("once=", "") }}d'
-  when: (lisoq_qemu_boot_cd)
+  when: (lisoq_qemu_boot_cd | bool)
