@@ -6,7 +6,7 @@
       - epel-release
     state: present
     update_cache: true
-  when: (lisoq_qemu_install)
+  when: (lisoq_qemu_install | bool)
 
 - name: '{{ ansible_os_family }} | Install qemu-system-x86'
   ansible.builtin.yum:
@@ -16,21 +16,21 @@
     state: present
     enablerepo: 'epel'
   ignore_errors: '{{ ansible_check_mode }}'
-  when: (lisoq_qemu_install)
+  when: (lisoq_qemu_install | bool)
 
 - name: '{{ ansible_os_family }} | Install rsync'
   ansible.builtin.yum:
     name:
       - rsync
     state: present
-  when: (lisoq_iso_file_local) or (lisoq_qemu_static_custom_local)
+  when: (lisoq_iso_file_local is truthy) or (lisoq_qemu_static_custom_local is truthy)
 
 - name: '{{ ansible_os_family }} | Run commands before install iptables'
   ansible.builtin.systemd:
     name: firewalld
     state: stopped
   ignore_errors: true
-  when: (lisoq_firewall_acl_enable)
+  when: (lisoq_firewall_acl_enable | bool)
 
 - name: '{{ ansible_os_family }} | Install iptables'
   ansible.builtin.yum:
@@ -38,7 +38,7 @@
       - iptables
       - iptables-services
 #      - iptables-utils
-  when: (lisoq_firewall_acl_enable)
+  when: (lisoq_firewall_acl_enable | bool)
 
 # - name: Starting iptables services after installation
 #  ansible.builtin.service:

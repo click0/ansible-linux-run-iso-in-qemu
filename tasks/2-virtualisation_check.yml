@@ -40,7 +40,7 @@
     lisoq_nested_virt: >-
       {{ ((lisoq_cpu_is_intel is success and 'vmx' in lisoq_cpu_flags)
       or (lisoq_cpu_is_amd is success and 'svm' in lisoq_cpu_flags))|bool }}
-  when: (lisoq_cpu_flags is defined) and (lisoq_cpu_flags)
+  when: (lisoq_cpu_flags is defined) and (lisoq_cpu_flags is truthy)
 
 # Immediately load the appropriate kvm vendor module.
 - name: load kvm module [intel]

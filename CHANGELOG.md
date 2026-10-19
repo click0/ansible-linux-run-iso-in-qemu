@@ -11,6 +11,8 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 ### Fixed
 
 - The role works again on ansible-core 2.16+: the removed `include` action is replaced with `include_tasks`.
+- The role works on ansible-core 2.19+: all `when:` conditions now return a boolean
+  (`| bool` for flags, `is truthy`/`is falsy` for paths, URLs, ports and lists).
 - Pre-install steps no longer call `apt-get` on RedHat/CentOS hosts.
 - `lisoq_iso_file_remote` now attaches the ISO (`-cdrom`) and is cleared when `lisoq_iso_file_local` is set.
 - `lisoq_qemu_cpu` set by the user is respected; autodetection applies only when it is empty.
