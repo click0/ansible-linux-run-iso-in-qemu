@@ -6,8 +6,6 @@ __ramdisk_package_default_size: "{{ (lisoq_ramdisk_package_size | int < 100) | t
 __need_ram: '300'
 
 lisoq_ramdisk_package_mounted: false
-lisoq_ramdisk_existed: false
-lisoq_ramdisk_mounted: false
 
 lisoq_firewall_acl_ports:
   - '{{ lisoq_qemu_args_port_ssh | default(omit) }}'

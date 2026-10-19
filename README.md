@@ -150,7 +150,10 @@ Use (and create) RAM-disk partitions on the target system (before running QEMU).
 The preferred path for the RAM-disk partition.
 
     lisoq_ramdisk_another_path: '/tmp'
-The alternative path for a RAM-disk partition if it is already in use internally. Subsequently, we will expand it to the desired size.
+The alternative path for the RAM-disk partition, used when `lisoq_ramdisk_path` is already mounted with another filesystem
+(e.g. a server disk mounted on `/mnt` in rescue mode).
+If the chosen path is already a tmpfs, it is reused and grown to `used + lisoq_ramdisk_size`; it is never shrunk.
+If both paths are mounted with non-tmpfs filesystems, the role fails.
 
     lisoq_ramdisk_size: '250'
 The size of the RAM-disk partition in MiB (mebibytes).
