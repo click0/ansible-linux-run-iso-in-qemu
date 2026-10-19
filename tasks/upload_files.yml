@@ -3,18 +3,29 @@
 # Upload (from Ansible host)
 # In order not to cache in /root/.ansible/tmp... if there is not enough free disk space.
 
+# Connection settings of the target host, accepting both current and legacy variable names.
+- name: Collect SSH connection settings for uploads
+  set_fact:
+    __lisoq_ssh_host: "{{ ansible_ssh_host | default(ansible_host) | default(inventory_hostname) }}"
+    __lisoq_ssh_port: "{{ ansible_ssh_port | default(ansible_port) | default(22) }}"
+    __lisoq_ssh_user: "{{ ansible_ssh_user | default(ansible_user) | default('root') }}"
+    __lisoq_ssh_password: "{{ ansible_ssh_password | default(ansible_ssh_pass) | default(ansible_password) | default('') }}"
+  no_log: true
+  when: (lisoq_iso_file_local is truthy) or (lisoq_qemu_static_custom_local is truthy)
+
 - name: Upload file 'lisoq_iso_file_local' via ssh
   # https://stackoverflow.com/a/71651490/12646191
   command: >-
-    rsync --rsh="sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -l
-    {{- ansible_ssh_user | default('root') -}}
-    " {{ lisoq_iso_file_local }} {{ ansible_ssh_host }}:{{ lisoq_ramdisk_path }}/
+    rsync --copy-links --times
+    --rsh="sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+    -p {{ __lisoq_ssh_port }} -l {{ __lisoq_ssh_user }}"
+    {{ lisoq_iso_file_local }} {{ __lisoq_ssh_host }}:{{ lisoq_ramdisk_path }}/
   ignore_errors: '{{ ansible_check_mode }}'
   environment:
-    SSHPASS: '{{ ansible_ssh_password }}'
+    SSHPASS: '{{ __lisoq_ssh_password }}'
   no_log: true
   delegate_to: 127.0.0.1
-  when: (ansible_ssh_password is defined) and (lisoq_iso_file_local is truthy)
+  when: (lisoq_iso_file_local is truthy) and (__lisoq_ssh_password | length > 0)
 
 - name: Upload file 'lisoq_iso_file_local' via module 'synchronize'.
   ansible.posix.synchronize:
@@ -23,19 +34,21 @@
     # (default) overwrite on source change
     copy_links: true # Copy symlinks as the item
   ignore_errors: '{{ ansible_check_mode }}'
-  when: (ansible_ssh_password is not defined) and (lisoq_iso_file_local is truthy)
+  when: (lisoq_iso_file_local is truthy) and (__lisoq_ssh_password | length == 0)
 
 - name: Upload file 'lisoq_qemu_static_custom_local' via ssh.
   command: >-
-    rsync --rsh="sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -l
-    {{- ansible_ssh_user | default('root') -}}
-    " {{ lisoq_qemu_static_custom_local }} {{ ansible_ssh_host }}:{{ lisoq_ramdisk_path }}/
+    rsync --copy-links --times
+    --rsh="sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+    -p {{ __lisoq_ssh_port }} -l {{ __lisoq_ssh_user }}"
+    {{ lisoq_qemu_static_custom_local }} {{ __lisoq_ssh_host }}:{{ lisoq_ramdisk_path }}/
   check_mode: false
   environment:
-    SSHPASS: '{{ ansible_ssh_password }}'
+    SSHPASS: '{{ __lisoq_ssh_password }}'
   no_log: true
   delegate_to: 127.0.0.1
-  when: (ansible_ssh_password is defined) and (lisoq_qemu_static_custom_enable | bool) and (lisoq_qemu_static_custom_local is truthy)
+  when: (lisoq_qemu_static_custom_enable | bool) and (lisoq_qemu_static_custom_local is truthy) and
+        (__lisoq_ssh_password | length > 0)
 
 - name: Upload file 'lisoq_qemu_static_custom_local' via module 'synchronize'.
   ansible.posix.synchronize:
@@ -43,9 +56,8 @@
     dest: '{{ lisoq_ramdisk_path }}'
     copy_links: true
   check_mode: false
-  when: ((ansible_ssh_password is not defined) or (ansible_ssh_password is falsy)) and
-        (lisoq_qemu_static_custom_enable | bool) and
-        (lisoq_qemu_static_custom_local is truthy)
+  when: (lisoq_qemu_static_custom_enable | bool) and (lisoq_qemu_static_custom_local is truthy) and
+        (__lisoq_ssh_password | length == 0)
 
 # Download files (from Internet)
 

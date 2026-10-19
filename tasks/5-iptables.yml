@@ -1,9 +1,23 @@
 ---
 
+# Rules are inserted at the top of INPUT, so existing ACCEPT rules cannot bypass them.
+# DROP is inserted first and the whitelist after it, which puts ACCEPT rules above DROP.
+
 # IPv4
+- name: 'Disable IPv4 connections on tcp ports: {{ lisoq_firewall_acl_ports }}'
+  ansible.builtin.iptables:
+    chain: INPUT
+    action: insert
+    jump: DROP
+    protocol: tcp
+    ip_version: ipv4
+    destination_ports:
+      - '{{ lisoq_firewall_acl_ports | join(",") }}'
+
 - name: 'Insert a INPUT rule to whitelist IPv4 in iptables to ports: {{ lisoq_firewall_acl_ports }}'
   ansible.builtin.iptables:
     chain: INPUT
+    action: insert
     protocol: tcp
     source: '{{ item }}'
     destination_ports:
@@ -12,19 +26,21 @@
     jump: ACCEPT
   with_items: '{{ lisoq_firewall_acl_ipv4_white }}'
 
-- name: 'Disable IPv4 connections on tcp ports: {{ lisoq_qemu_args_port_ssh }}, {{ lisoq_qemu_args_port_vnc }}'
+# IPv6
+- name: 'Disable IPv6 connections on tcp ports: {{ lisoq_firewall_acl_ports }}'
   ansible.builtin.iptables:
     chain: INPUT
+    action: insert
     jump: DROP
     protocol: tcp
-    ip_version: ipv4
+    ip_version: ipv6
     destination_ports:
       - '{{ lisoq_firewall_acl_ports | join(",") }}'
 
-# IPv6
-- name: 'Insert a INPUT rule to whitelist IPv6 in iptables to ports: {{ lisoq_qemu_args_port_ssh }}, {{ lisoq_qemu_args_port_vnc }}'
+- name: 'Insert a INPUT rule to whitelist IPv6 in iptables to ports: {{ lisoq_firewall_acl_ports }}'
   ansible.builtin.iptables:
     chain: INPUT
+    action: insert
     protocol: tcp
     source: '{{ item }}'
     destination_ports:
@@ -32,12 +48,3 @@
     ip_version: ipv6
     jump: ACCEPT
   with_items: '{{ lisoq_firewall_acl_ipv6_white }}'
-
-- name: 'Disable IPv6 connections on tcp ports: {{ lisoq_qemu_args_port_ssh }}, {{ lisoq_qemu_args_port_vnc }}'
-  ansible.builtin.iptables:
-    chain: INPUT
-    jump: DROP
-    protocol: tcp
-    ip_version: ipv6
-    destination_ports:
-      - '{{ lisoq_firewall_acl_ports | join(",") }}'

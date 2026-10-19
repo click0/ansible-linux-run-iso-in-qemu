@@ -12,5 +12,5 @@
     src: tmpfs
     fstype: tmpfs
     opts: 'size=1M'
-    state: mounted
+    state: ephemeral
   when: (lisoq_ramdisk_package_enable | bool) and (lisoq_ramdisk_package_purge | bool)

@@ -118,7 +118,7 @@
         src: tmpfs
         fstype: tmpfs
         opts: 'size={{ lisoq_ramdisk_size }}M'
-        state: mounted
+        state: ephemeral
       when: (not lisoq_ramdisk_mounted | bool)
   when: (lisoq_ramdisk_enable | bool)
 
@@ -185,6 +185,10 @@
   set_fact:
     lisoq_qemu_args: '{{ lisoq_qemu_args }} -m {{ lisoq_qemu_ram }}M'
 
+- name: Remember whether the disk list is autodetected.
+  set_fact:
+    __lisoq_qemu_disk_autodetect: '{{ lisoq_qemu_disk is falsy }}'
+
 - name: Create a regular variable lisoq_qemu_exclude_disk_regular.
   set_fact:
     lisoq_qemu_exclude_disk_regular: '^({{ lisoq_qemu_exclude_disk_regular_list | join("|") }})[0-9]+'
@@ -196,6 +200,46 @@
       | difference(lisoq_qemu_exclude_disk) | list }}'
   when: (lisoq_qemu_disk is falsy)
 
+# A disk is in use by the host if it, its partitions or LVM/md volumes on it are mounted or used as swap.
+# Writing to such a disk from QEMU at the same time corrupts it.
+- name: Find mount points on the selected disks
+  command:
+    argv:
+      - lsblk
+      - -nro
+      - MOUNTPOINT
+      - '/dev/{{ item }}'
+  loop: '{{ lisoq_qemu_disk | list }}'
+  register: __lisoq_qemu_disk_mounts
+  changed_when: false
+  check_mode: false
+
+- name: Set the list of disks in use by the host
+  set_fact:
+    __lisoq_qemu_disk_in_use: >-
+      {{ __lisoq_qemu_disk_mounts.results | default([])
+         | selectattr('stdout', 'search', '\S') | map(attribute='item') | list }}
+
+- name: Fail if an explicitly listed disk is in use by the host
+  fail:
+    msg: >-
+      Disks {{ __lisoq_qemu_disk_in_use | join(', ') }} from lisoq_qemu_disk are mounted or used as swap on the host.
+      Remove them from lisoq_qemu_disk or set lisoq_qemu_disk_allow_in_use to true.
+  when: (not __lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_in_use | length > 0) and
+        (not lisoq_qemu_disk_allow_in_use | bool)
+
+- name: Exclude autodetected disks in use by the host
+  set_fact:
+    lisoq_qemu_disk: '{{ lisoq_qemu_disk | difference(__lisoq_qemu_disk_in_use) }}'
+  when: (__lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_in_use | length > 0) and
+        (not lisoq_qemu_disk_allow_in_use | bool)
+
+- name: Report disks excluded from QEMU
+  debug:
+    msg: 'Disks in use by the host are not passed to QEMU: {{ __lisoq_qemu_disk_in_use | join(", ") }}'
+  when: (__lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_in_use | length > 0) and
+        (not lisoq_qemu_disk_allow_in_use | bool)
+
 - name: Reset the large disk flag
   set_fact:
     lisoq_qemu_disk_large_detect: false
@@ -206,6 +250,13 @@
   loop: '{{ lisoq_qemu_disk | list }}'
   when: >-
     (ansible_devices[item].sectors|int * ansible_devices[item].sectorsize|int) > (2 * 1024 * 1024 * 1024 * 1024)
+
+# uefi.bin is extracted from lisoq_qemu_static_custom_uefi_url in upload_files.yml (same condition).
+- name: Add UEFI firmware to qemu_args for disks larger than 2 TiB.
+  set_fact:
+    lisoq_qemu_args: '{{ lisoq_qemu_args }} -bios {{ lisoq_ramdisk_path }}/uefi.bin'
+  when: (lisoq_qemu_static_custom_enable | bool) and (lisoq_qemu_disk_large_detect | bool) and
+        (lisoq_qemu_static_custom_uefi_url | length > 0)
 
 - name: Add a list of disk device options to qemu_args.
   set_fact:

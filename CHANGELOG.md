@@ -6,7 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y.Z` git tags
 (the tag is the version imported by Ansible Galaxy).
 
-## [Unreleased] - planned 1.0.4
+## [1.2.0] - unreleased
+
+### ⚠ BREAKING
+
+- `lisoq_qemu_enable` is now enforced. Its default is `false`, so QEMU is no longer started unless
+  `lisoq_qemu_enable: true` is set (both README examples already set it).
+- Disks in use by the host (mounted, swap, LVM/md members) are no longer passed to QEMU.
+  Autodetected ones are skipped with a message; explicitly listed ones fail the play.
+  Set `lisoq_qemu_disk_allow_in_use: true` to restore the old behaviour.
+- `min_ansible_version` is 2.15. EL6 is no longer supported; for EL7 targets use ansible-core 2.15 or 2.16.
+  Stay on `1.1.x` if you need older Ansible or EL6.
+
+### Added
+
+- `lisoq_qemu_disk_allow_in_use` (default `false`).
+
+## [1.1.0] - unreleased
+
+### Changed
+
+- Requires the `ansible.posix` collection >= 1.5.0 (`state: ephemeral` mounts).
+- With static QEMU and a disk larger than 2 TiB, the downloaded UEFI firmware is now passed to QEMU (`-bios uefi.bin`).
+
+### Fixed
+
+- Re-running the role no longer starts a second QEMU on the same disks and ports.
+- Firewall ACL rules are inserted at the top of `INPUT`, so earlier `ACCEPT` rules cannot bypass them.
+- Role tmpfs ramdisks are no longer written to `/etc/fstab` (on an installed system the package cache
+  came back as a 1 MiB tmpfs after reboot).
+- Password-based uploads work with current inventory variables (`ansible_host`, `ansible_port`, `ansible_user`,
+  `ansible_password`), respect a non-default SSH port, and upload a symlinked ISO as a file.
+
+## [1.0.4] - unreleased
 
 ### Fixed
 
@@ -38,7 +70,9 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ## [1.0.0] - 2022-09-20
 
-[Unreleased]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.3...HEAD
+[1.2.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.1.0...1.2.0
+[1.1.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.4...1.1.0
+[1.0.4]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.3...1.0.4
 [1.0.3]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.2...1.0.3
 [1.0.2]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.0...1.0.1

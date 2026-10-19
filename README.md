@@ -27,6 +27,12 @@ Installed packages on target hosts:
   - python3
   - python3-apt
     
+ansible-core 2.15 or newer on the control node (tested with 2.15 and 2.19).
+For EL7 targets use ansible-core 2.15 or 2.16: newer versions do not support its Python.
+
+Ansible collection on the control node:
+  - `ansible.posix` >= 1.5.0 (`ansible-galaxy collection install ansible.posix`)
+
 Installed packages on the control node (Ansible):
   - rsync
   - sshpass  
@@ -37,7 +43,8 @@ If you use password login to target hosts via `ssh`
 See the [`defaults/main.yml`](defaults/main.yml) and examples in vars:
 
     lisoq_qemu_enable: false
-Do I need to use and run QEMU. Without this option, the role can download the ISO image and configure the firewall.
+Whether to start QEMU. With `false` the role still prepares everything (packages, ramdisk, firewall, ISO and QEMU downloads), but does not start QEMU.
+**Since 1.2.0** this option is enforced: before 1.2.0 QEMU was started regardless of it, so set `lisoq_qemu_enable: true` explicitly.
 
     lisoq_qemu_static_custom_enable: false
 The option is responsible for using (or not) universal binary for Linux with statically compiled libraries.
@@ -54,6 +61,7 @@ Relative path inside the statically compiled QEMU archive to auxiliary files (BI
 
     lisoq_qemu_static_custom_uefi_url: 'https://support.org.ua/Soft/vKVM/orig/uefi.tar.gz'
 Auxiliary UEFI BIOS archive URL to support block devices larger than 2 TiB.
+It is downloaded and passed to QEMU (`-bios uefi.bin`) only with `lisoq_qemu_static_custom_enable: true` and when any of the `lisoq_qemu_disk` devices is larger than 2 TiB.
 
     lisoq_qemu_args_port_ssh: '1022'
 External port for ssh forwarding to QEMU internal port `22`.
@@ -85,6 +93,13 @@ You can specify your own list of block devices:
     lisoq_qemu_disk:
       - 'sda'
       - 'sdb'
+<br>
+
+    lisoq_qemu_disk_allow_in_use: false
+Disks that are in use by the host (the disk, its partitions or LVM/md volumes on it are mounted or used as swap) are not passed to QEMU,
+because writing to them from QEMU at the same time corrupts them. Autodetected disks in use are skipped with a message;
+if such a disk is listed explicitly in `lisoq_qemu_disk`, the role fails. Set to `true` to pass them anyway (at your own risk).
+On a rescue system booted into RAM, the server disks are not mounted, so all of them are passed as before.
 <br>
 
     lisoq_qemu_exclude_disk:

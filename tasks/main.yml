@@ -24,3 +24,9 @@
 
 - name: Starting qemu
   include_tasks: start_qemu.yml
+  when: (lisoq_qemu_enable | bool)
+
+- name: QEMU start is disabled
+  debug:
+    msg: 'QEMU was not started: set lisoq_qemu_enable to true to start it.'
+  when: (not lisoq_qemu_enable | bool)
