@@ -6,10 +6,13 @@
 - name: Upload file 'lisoq_iso_file_local' via ssh
   # https://stackoverflow.com/a/71651490/12646191
   command: >-
-    rsync --rsh="sshpass -p {{ ansible_ssh_password }} ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -l
+    rsync --rsh="sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -l
     {{- ansible_ssh_user | default('root') -}}
     " {{ lisoq_iso_file_local }} {{ ansible_ssh_host }}:{{ lisoq_ramdisk_path }}/
   ignore_errors: '{{ ansible_check_mode }}'
+  environment:
+    SSHPASS: '{{ ansible_ssh_password }}'
+  no_log: true
   delegate_to: 127.0.0.1
   when: (ansible_ssh_password is defined) and (lisoq_iso_file_local)
 
@@ -24,10 +27,13 @@
 
 - name: Upload file 'lisoq_qemu_static_custom_local' via ssh.
   command: >-
-    rsync --rsh="sshpass -p {{ ansible_ssh_password }} ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -l
+    rsync --rsh="sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -l
     {{- ansible_ssh_user | default('root') -}}
     " {{ lisoq_qemu_static_custom_local }} {{ ansible_ssh_host }}:{{ lisoq_ramdisk_path }}/
   check_mode: false
+  environment:
+    SSHPASS: '{{ ansible_ssh_password }}'
+  no_log: true
   delegate_to: 127.0.0.1
   when: (ansible_ssh_password is defined) and (lisoq_qemu_static_custom_enable) and (lisoq_qemu_static_custom_local)
 
