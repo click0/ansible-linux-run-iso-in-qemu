@@ -207,6 +207,13 @@
   when: >-
     (ansible_devices[item].sectors|int * ansible_devices[item].sectorsize|int) > (2 * 1024 * 1024 * 1024 * 1024)
 
+# uefi.bin is extracted from lisoq_qemu_static_custom_uefi_url in upload_files.yml (same condition).
+- name: Add UEFI firmware to qemu_args for disks larger than 2 TiB.
+  set_fact:
+    lisoq_qemu_args: '{{ lisoq_qemu_args }} -bios {{ lisoq_ramdisk_path }}/uefi.bin'
+  when: (lisoq_qemu_static_custom_enable | bool) and (lisoq_qemu_disk_large_detect | bool) and
+        (lisoq_qemu_static_custom_uefi_url | length > 0)
+
 - name: Add a list of disk device options to qemu_args.
   set_fact:
     lisoq_qemu_args: '{{ lisoq_qemu_args }}

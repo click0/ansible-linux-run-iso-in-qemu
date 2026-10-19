@@ -54,6 +54,7 @@ Relative path inside the statically compiled QEMU archive to auxiliary files (BI
 
     lisoq_qemu_static_custom_uefi_url: 'https://support.org.ua/Soft/vKVM/orig/uefi.tar.gz'
 Auxiliary UEFI BIOS archive URL to support block devices larger than 2 TiB.
+It is downloaded and passed to QEMU (`-bios uefi.bin`) only with `lisoq_qemu_static_custom_enable: true` and when any of the `lisoq_qemu_disk` devices is larger than 2 TiB.
 
     lisoq_qemu_args_port_ssh: '1022'
 External port for ssh forwarding to QEMU internal port `22`.
