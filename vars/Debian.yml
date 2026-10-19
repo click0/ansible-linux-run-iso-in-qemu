@@ -5,8 +5,6 @@ __ramdisk_package_default_size: "{{ (lisoq_ramdisk_package_size | int < 100) | t
 
 __need_ram: '300'
 
-lisoq_total_need_ram: '{{ (lisoq_total_need_ram | int < __need_ram) | ternary(__need_ram, lisoq_total_need_ram) }}'
-
 lisoq_ramdisk_package_mounted: false
 lisoq_ramdisk_existed: false
 lisoq_ramdisk_mounted: false
