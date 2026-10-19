@@ -40,7 +40,8 @@ If you use password login to target hosts via `ssh`
 See the [`defaults/main.yml`](defaults/main.yml) and examples in vars:
 
     lisoq_qemu_enable: false
-Do I need to use and run QEMU. Without this option, the role can download the ISO image and configure the firewall.
+Whether to start QEMU. With `false` the role still prepares everything (packages, ramdisk, firewall, ISO and QEMU downloads), but does not start QEMU.
+**Since 1.2.0** this option is enforced: before 1.2.0 QEMU was started regardless of it, so set `lisoq_qemu_enable: true` explicitly.
 
     lisoq_qemu_static_custom_enable: false
 The option is responsible for using (or not) universal binary for Linux with statically compiled libraries.
