@@ -64,6 +64,7 @@
 - name: Determine the number of CPUs
   set_fact:
     lisoq_qemu_cpu: '{{ ansible_processor_vcpus | default(1) }}'
+  when: (not lisoq_qemu_cpu)
 
 - name: Set the priority for the variable lisoq_iso_file_local
   set_fact:
