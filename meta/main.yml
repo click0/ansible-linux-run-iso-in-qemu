@@ -7,14 +7,13 @@ galaxy_info:
   company: https://support.od.ua
   github_branch: master
   license: BSD
-  min_ansible_version: '2.11'
+  min_ansible_version: '2.15'
   platforms:
     - name: 'Debian'
       versions: ['all']
     - name: 'EL'
       versions:
-        - 6
-        - 7
+        - '7'
   galaxy_tags:
     - linux
     - system

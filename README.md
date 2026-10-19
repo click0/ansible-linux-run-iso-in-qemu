@@ -27,6 +27,9 @@ Installed packages on target hosts:
   - python3
   - python3-apt
     
+ansible-core 2.15 or newer on the control node (tested with 2.15 and 2.19).
+For EL7 targets use ansible-core 2.15 or 2.16: newer versions do not support its Python.
+
 Ansible collection on the control node:
   - `ansible.posix` >= 1.5.0 (`ansible-galaxy collection install ansible.posix`)
 
