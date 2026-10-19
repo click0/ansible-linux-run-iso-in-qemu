@@ -92,6 +92,13 @@ You can specify your own list of block devices:
       - 'sdb'
 <br>
 
+    lisoq_qemu_disk_allow_in_use: false
+Disks that are in use by the host (the disk, its partitions or LVM/md volumes on it are mounted or used as swap) are not passed to QEMU,
+because writing to them from QEMU at the same time corrupts them. Autodetected disks in use are skipped with a message;
+if such a disk is listed explicitly in `lisoq_qemu_disk`, the role fails. Set to `true` to pass them anyway (at your own risk).
+On a rescue system booted into RAM, the server disks are not mounted, so all of them are passed as before.
+<br>
+
     lisoq_qemu_exclude_disk:
       - 'fd0'
       - 'sr0'

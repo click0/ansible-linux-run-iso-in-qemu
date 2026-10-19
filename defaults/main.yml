@@ -24,6 +24,7 @@ lisoq_qemu_cpu: '' # all CPU - autodetect
 lisoq_qemu_disk: '' # default - autodetect
 #  - 'sda'
 #  - 'sdb'
+lisoq_qemu_disk_allow_in_use: false # pass disks mounted or used as swap on the host to QEMU
 lisoq_qemu_exclude_disk:
   - 'fd0'
   - 'sr0'
