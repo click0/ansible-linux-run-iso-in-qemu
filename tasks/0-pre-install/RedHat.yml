@@ -39,7 +39,7 @@
 
     - name: Сalculate the size of the ram-disk partition for packages.
       set_fact:
-        lisoq_ramdisk_package_size: '{{ ((((__var_cache_package_path_size | int) / ( 1024 * 1024))|int) + __ramdisk_package_default_size|int)|int }}'
+        lisoq_ramdisk_package_size: '{{ ((((__var_cache_package_path_size | int) / 1024)|int) + __ramdisk_package_default_size|int)|int }}'
       when: (lisoq_ramdisk_package_size is not defined) or (not lisoq_ramdisk_package_size)
 
     - name: 'Ensure ramdisk {{ __var_cache_package_path }} is mounted'
