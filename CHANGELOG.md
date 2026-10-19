@@ -22,6 +22,8 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 - The CPU vendor check for nested virtualization now actually checks the vendor.
 - Removed the self-referencing `lisoq_total_need_ram` from `vars/*.yml`.
 - Removed `debugger: on_failed`, which hung non-interactive runs.
+- `zram` devices (compressed RAM swap) are no longer passed to QEMU as disks:
+  `zram` is added to `lisoq_qemu_exclude_disk_regular_list`.
 
 ### Security
 
