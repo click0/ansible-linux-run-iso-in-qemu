@@ -67,7 +67,7 @@
 
 - name: Set the priority for the variable lisoq_iso_file_local
   set_fact:
-    lisoq_iso_remote_file: false
+    lisoq_iso_file_remote: false
     lisoq_iso_file_url: false
   when: (lisoq_iso_file_local)
 
@@ -165,6 +165,11 @@
   set_fact:
     lisoq_qemu_args: '{{ lisoq_qemu_args }} -cdrom {{ lisoq_ramdisk_path }}/{{ lisoq_iso_file_local | basename }}'
   when: (lisoq_iso_file_local)
+
+- name: Add the remote ISO option to qemu_args.
+  set_fact:
+    lisoq_qemu_args: '{{ lisoq_qemu_args }} -cdrom {{ lisoq_iso_file_remote }}'
+  when: (lisoq_iso_file_remote)
 
 - name: Add an ISO URL option to qemu_args. We will download this ISO later.
   set_fact:
