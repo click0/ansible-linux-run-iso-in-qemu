@@ -57,7 +57,7 @@
         src: tmpfs
         fstype: tmpfs
         opts: 'size={{ lisoq_ramdisk_package_size }}M'
-        state: mounted
+        state: ephemeral
       when: (lisoq_ramdisk_package_enable | bool)
 
     - name: 'Copy files from directory {{ __var_cache_package_path }}.old to {{ __var_cache_package_path }}'

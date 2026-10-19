@@ -27,6 +27,9 @@ Installed packages on target hosts:
   - python3
   - python3-apt
     
+Ansible collection on the control node:
+  - `ansible.posix` >= 1.5.0 (`ansible-galaxy collection install ansible.posix`)
+
 Installed packages on the control node (Ansible):
   - rsync
   - sshpass  

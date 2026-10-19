@@ -118,7 +118,7 @@
         src: tmpfs
         fstype: tmpfs
         opts: 'size={{ lisoq_ramdisk_size }}M'
-        state: mounted
+        state: ephemeral
       when: (not lisoq_ramdisk_mounted | bool)
   when: (lisoq_ramdisk_enable | bool)
 
