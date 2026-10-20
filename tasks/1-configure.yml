@@ -197,6 +197,13 @@
         state: ephemeral
   when: (lisoq_ramdisk_enable | bool)
 
+# Files of the role (ISO, QEMU archives, uefi.bin) are kept in a private subdirectory: the ramdisk path
+# is world-writable (tmpfs root, /tmp fallback) and existing files are reused on re-runs, so another
+# local user could otherwise plant a binary or an ISO there. See upload_files.yml.
+- name: Set the work directory of the role
+  set_fact:
+    __lisoq_work_dir: '{{ __lisoq_ramdisk_dir }}/lisoq'
+
 # QEMU command line: lisoq_qemu_args from the user plus the options added by the role.
 
 # '-name lisoq' marks the VM started by this role (see start_qemu.yml).
@@ -238,7 +245,7 @@
 
 - name: Add the local ISO option to qemu_args.
   set_fact:
-    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ (__lisoq_ramdisk_dir ~ "/" ~ (__lisoq_iso_local | basename)) | quote }}'
+    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ (__lisoq_work_dir ~ "/" ~ (__lisoq_iso_local | basename)) | quote }}'
   when: (__lisoq_iso_local is truthy)
 
 - name: Add the remote ISO option to qemu_args.
@@ -248,7 +255,7 @@
 
 - name: Add an ISO URL option to qemu_args. We will download this ISO later.
   set_fact:
-    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ (__lisoq_ramdisk_dir ~ "/" ~ (__lisoq_iso_url | basename)) | quote }}'
+    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ (__lisoq_work_dir ~ "/" ~ (__lisoq_iso_url | basename)) | quote }}'
   when: (__lisoq_iso_url is truthy)
 
 - name: Add the count of CPU to qemu_args.
@@ -374,7 +381,7 @@
 # uefi.bin is extracted from lisoq_qemu_static_custom_uefi_url in upload_files.yml (same condition).
 - name: Add UEFI firmware to qemu_args.
   set_fact:
-    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -bios {{ __lisoq_ramdisk_dir }}/uefi.bin'
+    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -bios {{ __lisoq_work_dir }}/uefi.bin'
   when: (__lisoq_qemu_uefi | bool)
 
 # Disks go to the IDE bus as before while they fit: the 'pc' machine has 4 IDE slots and -cdrom takes one.
