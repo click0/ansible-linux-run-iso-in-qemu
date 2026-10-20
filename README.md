@@ -64,8 +64,12 @@ URL location with the statically compiled QEMU archive(tar.gz).
 Relative path inside the statically compiled QEMU archive to auxiliary files (BIOS, keyboard layout etc).
 
     lisoq_qemu_static_custom_uefi_url: 'https://support.org.ua/Soft/vKVM/orig/uefi.tar.gz'
-Auxiliary UEFI BIOS archive URL to support block devices larger than 2 TiB.
-It is downloaded and passed to QEMU (`-bios uefi.bin`) only with `lisoq_qemu_static_custom_enable: true` and when any of the `lisoq_qemu_disk` devices is larger than 2 TiB.
+UEFI firmware archive (`uefi.bin`) used with `lisoq_qemu_uefi: true`.
+
+    lisoq_qemu_uefi: false
+Boot QEMU with UEFI firmware (`-bios uefi.bin`) instead of the default BIOS (SeaBIOS). Requires `lisoq_qemu_static_custom_enable: true`.
+Enable it only if the OS must be installed or booted in UEFI mode, and only with an ISO that supports UEFI boot
+(the default mfsbsd ISO does not). Disks larger than 2 TiB are fully usable in BIOS mode as well.
 
     lisoq_qemu_args_port_ssh: '1022'
 External port for ssh forwarding to QEMU internal port `22`.
