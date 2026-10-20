@@ -24,7 +24,7 @@
       - '{{ __lisoq_acl_ports | join(",") }}'
     ip_version: ipv4
     jump: ACCEPT
-  with_items: '{{ lisoq_firewall_acl_ipv4_white }}'
+  with_items: '{{ __lisoq_acl_ipv4_white }}'
 
 # IPv6
 - name: 'Disable IPv6 connections on tcp ports: {{ __lisoq_acl_ports }}'
@@ -47,4 +47,4 @@
       - '{{ __lisoq_acl_ports | join(",") }}'
     ip_version: ipv6
     jump: ACCEPT
-  with_items: '{{ lisoq_firewall_acl_ipv6_white }}'
+  with_items: '{{ __lisoq_acl_ipv6_white }}'

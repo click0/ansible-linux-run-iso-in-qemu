@@ -58,6 +58,41 @@
       {{ lisoq_total_need_ram if (lisoq_total_need_ram is truthy)
          else [lisoq_ramdisk_size | int + lisoq_qemu_ram | int, __need_ram | int] | max }}
 
+# Firewall whitelist: user networks plus the address the Ansible control node connects from, as seen by
+# the server. SSH_CONNECTION is 'client_ip client_port server_ip server_port'; it is read without become,
+# because sudo removes it from the environment.
+- name: Find the address of the Ansible control node as seen by the server
+  command: printenv SSH_CONNECTION
+  become: false
+  register: __lisoq_ssh_connection
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: (lisoq_firewall_acl_enable | bool) and (lisoq_firewall_acl_allow_ansible_ip | bool)
+
+- name: Set the firewall whitelists
+  set_fact:
+    __lisoq_ansible_ip: "{{ (__lisoq_ssh_connection.stdout | default('')).split() | first | default('') }}"
+    __lisoq_acl_ipv4_white: "{{ lisoq_firewall_acl_ipv4_white | default([]) | list }}"
+    __lisoq_acl_ipv6_white: "{{ lisoq_firewall_acl_ipv6_white | default([]) | list }}"
+
+- name: Add the address of the Ansible control node to the firewall whitelist
+  set_fact:
+    __lisoq_acl_ipv4_white: >-
+      {{ __lisoq_acl_ipv4_white + ([__lisoq_ansible_ip ~ '/32'] if (':' not in __lisoq_ansible_ip) else []) }}
+    __lisoq_acl_ipv6_white: >-
+      {{ __lisoq_acl_ipv6_white + ([__lisoq_ansible_ip ~ '/128'] if (':' in __lisoq_ansible_ip) else []) }}
+  when: (__lisoq_ansible_ip | length > 0)
+
+- name: The address of the Ansible control node is unknown
+  debug:
+    msg: >-
+      Could not detect the address the Ansible control node connects from (no SSH_CONNECTION, e.g. a local
+      connection). Only lisoq_firewall_acl_ipv4_white / lisoq_firewall_acl_ipv6_white are allowed to reach
+      the QEMU ports.
+  when: (lisoq_firewall_acl_enable | bool) and (lisoq_firewall_acl_allow_ansible_ip | bool) and
+        (__lisoq_ansible_ip | length == 0)
+
 # Without -vnc QEMU opens a GTK/SDL window and fails on a headless server.
 - name: Check lisoq_qemu_vnc_type
   fail:

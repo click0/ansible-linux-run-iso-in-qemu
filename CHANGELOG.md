@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y.Z` git tags
 (the tag is the version imported by Ansible Galaxy).
 
+## [1.4.0] - 2026-10-20
+
+### ⚠ Changed
+
+- `lisoq_firewall_acl_enable` is `true` by default. The QEMU forwarded ports (VM SSH 1022, RDP, VNC) were open to
+  everyone, and live ISOs such as mfsbsd have a well-known root password. Now they are reachable only from the
+  whitelists. Set `lisoq_firewall_acl_enable: false` to restore the old behaviour.
+- On RedHat the role no longer stops `firewalld` when the ACL is enabled (that removed the filtering of all
+  other ports of the server); it prints a warning that `firewall-cmd --reload` drops the ACL rules.
+
+### Added
+
+- `lisoq_firewall_acl_allow_ansible_ip` (default `true`): the address the Ansible control node connects from,
+  as seen by the server (`SSH_CONNECTION`), is added to the whitelist automatically.
+
+### Fixed
+
+- `lisoq_ramdisk_package_purge` no longer leaves a 1 MiB tmpfs on the package cache directory, which broke any
+  later package download, including a re-run of the role.
+
 ## [1.3.0] - 2026-10-20
 
 ### Changed
@@ -100,6 +120,7 @@ First release after 1.0.3. Versions 1.0.4, 1.1.0 and 1.2.0 were never tagged; th
 
 ## [1.0.0] - 2022-09-20
 
+[1.4.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.3.0...1.4.0
 [1.3.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.2.2...1.3.0
 [1.2.2]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.2.1...1.2.2
 [1.2.1]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.3...1.2.1

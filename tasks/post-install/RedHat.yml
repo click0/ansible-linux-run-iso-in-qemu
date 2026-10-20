@@ -1,16 +1,10 @@
 ---
 
+# Purge: unmount the package cache ramdisk to free its RAM. The directory below it is the empty one
+# created before mounting. It is not replaced by a tiny tmpfs, so later package installs (including
+# a re-run of this role) still have room for downloads.
 - name: Unmount ramdisk {{ __var_cache_package_path }} if is mounted
   ansible.posix.mount:
     path: '{{ __var_cache_package_path }}'
     state: unmounted
-  when: (lisoq_ramdisk_package_enable | bool) and (lisoq_ramdisk_package_purge | bool)
-
-- name: Ensure ramdisk {{ __var_cache_package_path }} is mounted
-  ansible.posix.mount:
-    path: '{{ __var_cache_package_path }}'
-    src: tmpfs
-    fstype: tmpfs
-    opts: 'size=1M'
-    state: ephemeral
   when: (lisoq_ramdisk_package_enable | bool) and (lisoq_ramdisk_package_purge | bool)
