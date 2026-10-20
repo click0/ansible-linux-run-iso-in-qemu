@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y.Z` git tags
 (the tag is the version imported by Ansible Galaxy).
 
-## [Unreleased]
+## [1.4.0] - 2026-10-20
 
 ### ⚠ Changed
 
@@ -120,6 +120,7 @@ First release after 1.0.3. Versions 1.0.4, 1.1.0 and 1.2.0 were never tagged; th
 
 ## [1.0.0] - 2022-09-20
 
+[1.4.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.3.0...1.4.0
 [1.3.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.2.2...1.3.0
 [1.2.2]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.2.1...1.2.2
 [1.2.1]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.3...1.2.1
