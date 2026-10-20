@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y.Z` git tags
 (the tag is the version imported by Ansible Galaxy).
 
+## [Unreleased]
+
+### ⚠ Changed
+
+- Disks with an active md array, LVM, dm-crypt/multipath device, or in an imported ZFS pool are treated as in use
+  and not passed to QEMU (before, only mounted disks and swap were; the 1.2.1 entry already claimed LVM/md).
+  On rescue systems that auto-assemble md arrays, stop them first (`mdadm --stop --scan`) or set
+  `lisoq_qemu_disk_allow_in_use: true`.
+- The firewall ACL lives in its own chain `LISOQ_QEMU`, rebuilt on every run; INPUT only jumps to it.
+
+### Fixed
+
+- Servers with 4 disks (plus the ISO) or more could not start QEMU ("machine type does not support
+  if=ide,bus=2,unit=0"). Disks that do not fit on the IDE bus are attached via AHCI (SATA) controllers.
+- Removing an address from the firewall whitelists (or a new address of the Ansible host) now revokes access;
+  previously the old ACCEPT rule stayed in place.
+- The firewall protects the VNC port QEMU actually listens on (values below 5900 mean 5901); before, e.g.
+  `lisoq_qemu_args_port_vnc: '1'` left 5901 open.
+
 ## [1.4.0] - 2026-10-20
 
 ### ⚠ Changed
