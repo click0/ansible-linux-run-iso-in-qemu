@@ -48,7 +48,7 @@ internal `__lisoq_*` facts, so a setting passed with `-e` is applied the same wa
 
     lisoq_qemu_enable: false
 Whether to start QEMU. With `false` the role still prepares everything (packages, ramdisk, firewall, ISO and QEMU downloads), but does not start QEMU.
-**Since 1.2.0** this option is enforced: before 1.2.0 QEMU was started regardless of it, so set `lisoq_qemu_enable: true` explicitly.
+**Since 1.2.1** this option is enforced: before 1.2.1 QEMU was started regardless of it, so set `lisoq_qemu_enable: true` explicitly.
 
     lisoq_qemu_static_custom_enable: false
 The option is responsible for using (or not) universal binary for Linux with statically compiled libraries.
