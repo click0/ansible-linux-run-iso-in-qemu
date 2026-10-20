@@ -15,6 +15,10 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
   On rescue systems that auto-assemble md arrays, stop them first (`mdadm --stop --scan`) or set
   `lisoq_qemu_disk_allow_in_use: true`.
 - The firewall ACL lives in its own chain `LISOQ_QEMU`, rebuilt on every run; INPUT only jumps to it.
+- Files of the role (ISO, QEMU archives, `uefi.bin`, uploads) are kept in `<ramdisk path>/lisoq`, a private
+  directory; the role refuses to reuse it if another user could have prepared it. Files from older versions in
+  the ramdisk path itself are downloaded once more.
+- The role's QEMU is started with `-name lisoq`.
 
 ### Fixed
 
@@ -24,6 +28,14 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
   previously the old ACCEPT rule stayed in place.
 - The firewall protects the VNC port QEMU actually listens on (values below 5900 mean 5901); before, e.g.
   `lisoq_qemu_args_port_vnc: '1'` left 5901 open.
+- `lisoq_qemu_enable: true` without `lisoq_qemu_install` or static QEMU now fails with a clear message instead of
+  silently starting nothing.
+- File paths with spaces (e.g. README Example #2) work in the password-based upload and in `-cdrom`.
+- Another VM on the host (e.g. from libvirt) no longer prevents the role from starting its own.
+- `lisoq_ramdisk_package_purge` unmounts only the package cache tmpfs mounted by the role.
+- With the firewall enabled, hosts without IPv6 (ip6tables not working) get IPv4 rules only instead of failing.
+- On multi-user hosts another user can no longer plant the QEMU binary or the ISO in the world-writable ramdisk
+  path for root to run.
 
 ## [1.4.0] - 2026-10-20
 
