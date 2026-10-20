@@ -43,7 +43,7 @@ lisoq_qemu_boot_once_cd: true
 
 lisoq_iso_file_local: '' # local file in Ansible host
 lisoq_iso_file_remote: '' # file in target host
-lisoq_iso_file_url: 'https://mfsbsd.vx.sk/files/iso/12/amd64/mfsbsd-12.2-RELEASE-amd64.iso'
+lisoq_iso_file_url: 'https://mfsbsd.vx.sk/files/iso/14/amd64/mfsbsd-14.2-RELEASE-amd64.iso'
 lisoq_iso_file_ssh_port: '22' # sshd port that accepts connections _inside_ ISO.
 
 lisoq_ramdisk_enable: false

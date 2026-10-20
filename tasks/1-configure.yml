@@ -272,7 +272,7 @@
     (ansible_devices[item].sectors|int * ansible_devices[item].sectorsize|int) > (2 * 1024 * 1024 * 1024 * 1024)
 
 # UEFI is opt-in: SeaBIOS sees disks larger than 2 TiB as well (the 2 TiB limit is MBR's), and many ISOs
-# (e.g. the default mfsbsd) have no UEFI boot loader, so forcing UEFI made them unbootable.
+# (e.g. mfsbsd 12.2, the default before 1.3.0) have no UEFI boot loader, so forcing UEFI made them unbootable.
 - name: Decide whether the UEFI firmware is used.
   set_fact:
     __lisoq_qemu_uefi: '{{ lisoq_qemu_uefi | bool }}'
