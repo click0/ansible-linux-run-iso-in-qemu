@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y.Z` git tags
 (the tag is the version imported by Ansible Galaxy).
 
+## [Unreleased]
+
+### ⚠ Changed
+
+- `lisoq_firewall_acl_enable` is `true` by default. The QEMU forwarded ports (VM SSH 1022, RDP, VNC) were open to
+  everyone, and live ISOs such as mfsbsd have a well-known root password. Now they are reachable only from the
+  whitelists. Set `lisoq_firewall_acl_enable: false` to restore the old behaviour.
+
+### Added
+
+- `lisoq_firewall_acl_allow_ansible_ip` (default `true`): the address the Ansible control node connects from,
+  as seen by the server (`SSH_CONNECTION`), is added to the whitelist automatically.
+
+### Fixed
+
+- `lisoq_ramdisk_package_purge` no longer leaves a 1 MiB tmpfs on the package cache directory, which broke any
+  later package download, including a re-run of the role.
+
 ## [1.3.0] - 2026-10-20
 
 ### Changed
