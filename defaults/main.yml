@@ -17,7 +17,7 @@ lisoq_qemu_static_custom_uefi_url: 'https://support.org.ua/Soft/vKVM/orig/uefi.t
 lisoq_qemu_args_port_ssh: '1022'  # ssh port forwarding
 lisoq_qemu_args_port_rdp: '3389'  # RDP port forwarding
 lisoq_qemu_args_port_vnc: '5901'  # VNC port forwarding
-lisoq_qemu_vnc_type: 'local' # or 'share' # or 'socket' ????
+lisoq_qemu_vnc_type: 'local' # 'local' (127.0.0.1 only) or 'share' (all addresses)
 lisoq_qemu_install: false
 lisoq_qemu_ram: '1024' # in MiB (mebibyte)
 lisoq_qemu_cpu: '' # all CPU - autodetect

@@ -58,6 +58,12 @@
       {{ lisoq_total_need_ram if (lisoq_total_need_ram is truthy)
          else [lisoq_ramdisk_size | int + lisoq_qemu_ram | int, __need_ram | int] | max }}
 
+# Without -vnc QEMU opens a GTK/SDL window and fails on a headless server.
+- name: Check lisoq_qemu_vnc_type
+  fail:
+    msg: "lisoq_qemu_vnc_type must be 'local' or 'share', got '{{ lisoq_qemu_vnc_type }}'."
+  when: lisoq_qemu_vnc_type not in ['local', 'share']
+
 - name: We use fail if we do not have enough RAM
   fail:
     msg: "not enough RAM!"
