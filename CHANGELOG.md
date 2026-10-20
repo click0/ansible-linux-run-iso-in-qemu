@@ -13,6 +13,8 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 - `lisoq_firewall_acl_enable` is `true` by default. The QEMU forwarded ports (VM SSH 1022, RDP, VNC) were open to
   everyone, and live ISOs such as mfsbsd have a well-known root password. Now they are reachable only from the
   whitelists. Set `lisoq_firewall_acl_enable: false` to restore the old behaviour.
+- On RedHat the role no longer stops `firewalld` when the ACL is enabled (that removed the filtering of all
+  other ports of the server); it prints a warning that `firewall-cmd --reload` drops the ACL rules.
 
 ### Added
 
