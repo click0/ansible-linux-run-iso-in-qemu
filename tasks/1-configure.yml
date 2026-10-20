@@ -336,12 +336,32 @@
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -bios {{ __lisoq_ramdisk_dir }}/uefi.bin'
   when: (__lisoq_qemu_uefi | bool)
 
+# Disks go to the IDE bus as before while they fit: the 'pc' machine has 4 IDE slots and -cdrom takes one.
+# More disks ("machine type does not support if=ide,bus=2,unit=0" otherwise) are all attached to
+# AHCI (SATA) controllers, 6 ports each; AHCI drivers are built into Windows, Linux and FreeBSD,
+# and SeaBIOS boots from it.
+- name: Count free IDE slots.
+  set_fact:
+    __lisoq_qemu_ide_free: >-
+      {{ 4 - (((__lisoq_iso_local is truthy) or (__lisoq_iso_remote is truthy) or (__lisoq_iso_url is truthy))
+              | ternary(1, 0)) }}
+
 - name: Add a list of disk device options to qemu_args.
   set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }}
  -drive ''file=/dev/{{ __lisoq_qemu_disks | join(",format=raw'' -drive ''file=/dev/") }},format=raw''
 '
-  when: (__lisoq_qemu_disks | length > 0)
+  when: (__lisoq_qemu_disks | length > 0) and (__lisoq_qemu_disks | length <= __lisoq_qemu_ide_free | int)
+
+- name: Add disks to qemu_args on AHCI (SATA) controllers.
+  set_fact:
+    __lisoq_qemu_cmd: >-
+      {{ __lisoq_qemu_cmd }}
+      {%- for c in range(((__lisoq_qemu_disks | length) + 5) // 6) %} -device ahci,id=lisoq_ahci{{ c }}{% endfor %}
+      {%- for d in __lisoq_qemu_disks %} -drive file=/dev/{{ d }},format=raw,if=none,id=lisoq_disk{{ loop.index0 }}
+      -device ide-hd,drive=lisoq_disk{{ loop.index0 }},bus=lisoq_ahci{{ loop.index0 // 6 }}.{{ loop.index0 % 6 }}
+      {%- endfor %}
+  when: (__lisoq_qemu_disks | length > __lisoq_qemu_ide_free | int)
 
 - name: Add start VNC to qemu_args.
   set_fact:
