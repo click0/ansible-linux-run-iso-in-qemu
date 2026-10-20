@@ -6,19 +6,19 @@
       - gpg
       - ca-certificates
     update_cache: true
-  when: (lisoq_qemu_install | bool)
+  when: (__lisoq_qemu_package | bool)
 
 - name: '{{ ansible_os_family }} | Install qemu-system-x86'
   apt:
     name:
       - qemu-system-x86
-  when: (lisoq_qemu_install | bool)
+  when: (__lisoq_qemu_package | bool)
 
 - name: Install rsync
   apt:
     name:
       - rsync
-  when: (lisoq_iso_file_local is truthy) or (lisoq_qemu_static_custom_local is truthy)
+  when: (__lisoq_iso_local is truthy) or (__lisoq_static_local is truthy)
 
 - name: '{{ ansible_os_family }} | Install iptables'
   apt:

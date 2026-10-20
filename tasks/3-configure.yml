@@ -2,5 +2,5 @@
 
 - name: Enable virtualization support to qemu_args.
   set_fact:
-    lisoq_qemu_args: '{{ lisoq_qemu_args }} -enable-kvm -cpu host'
-  when: (lisoq_nested_virt is defined) and (lisoq_nested_virt | bool)
+    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -enable-kvm -cpu host'
+  when: (__lisoq_kvm | bool)

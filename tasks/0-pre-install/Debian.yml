@@ -3,14 +3,28 @@
 - name: If lisoq_ramdisk_package_enable enabled
   block:
 
+    # ansible_mounts skips tmpfs, so a ramdisk left by a previous run is only visible to findmnt.
     - name: 'Check mounted path {{ __var_cache_package_path }}'
+      command:
+        argv:
+          - findmnt
+          - -n
+          - --mountpoint
+          - '{{ __var_cache_package_path }}'
+      register: __lisoq_package_findmnt
+      changed_when: false
+      failed_when: __lisoq_package_findmnt.rc > 1
+      check_mode: false
+
+    - name: 'Remember that {{ __var_cache_package_path }} is already mounted'
       set_fact:
-        lisoq_ramdisk_package_mounted: true
-      when: (ansible_mounts | selectattr('mount', 'equalto', __var_cache_package_path) | list | length > 0)
+        __lisoq_ramdisk_package_mounted: true
+      when: __lisoq_package_findmnt.rc == 0
 
     - name: 'Calculate the *raw* size of the directory {{ __var_cache_package_path }}'
       command: du -sk {{ __var_cache_package_path }}
       register: '__var_cache_package_path_size_raw' # in KiBytes!
+      changed_when: false
       check_mode: false
 
     - name: 'Calculate the size of the directory {{ __var_cache_package_path }}'
@@ -39,24 +53,25 @@
 
     - name: Сalculate the size of the ram-disk partition for packages.
       set_fact:
-        lisoq_ramdisk_package_size: '{{ ((((__var_cache_package_path_size | int) / 1024)|int) + __ramdisk_package_default_size|int)|int }}'
-      when: (lisoq_ramdisk_package_size is not defined) or (lisoq_ramdisk_package_size is falsy)
+        __lisoq_ramdisk_package_size: >-
+          {{ lisoq_ramdisk_package_size if (lisoq_ramdisk_package_size is truthy)
+             else ((((__var_cache_package_path_size | int) / 1024)|int) + __ramdisk_package_default_size|int)|int }}
 
     - name: 'Ensure ramdisk {{ __var_cache_package_path }} is mounted'
       ansible.posix.mount:
         path: '{{ __var_cache_package_path }}'
         src: tmpfs
         fstype: tmpfs
-        opts: 'size={{ lisoq_ramdisk_package_size | int }}M'
+        opts: 'size={{ __lisoq_ramdisk_package_size | int }}M'
         state: remounted
-      when: (lisoq_ramdisk_package_enable | bool) and (lisoq_ramdisk_package_mounted | bool)
+      when: (lisoq_ramdisk_package_enable | bool) and (__lisoq_ramdisk_package_mounted | bool)
 
     - name: 'Ensure ramdisk {{ __var_cache_package_path }} is not mounted'
       ansible.posix.mount:
         path: '{{ __var_cache_package_path }}'
         src: tmpfs
         fstype: tmpfs
-        opts: 'size={{ lisoq_ramdisk_package_size }}M'
+        opts: 'size={{ __lisoq_ramdisk_package_size | int }}M'
         state: ephemeral
       when: (lisoq_ramdisk_package_enable | bool)
 
@@ -73,4 +88,4 @@
       ansible.builtin.file:
         path: '{{ __var_cache_package_path }}.old'
         state: absent
-  when: (lisoq_ramdisk_package_enable | bool) and (not lisoq_ramdisk_package_mounted | bool)
+  when: (lisoq_ramdisk_package_enable | bool) and (not __lisoq_ramdisk_package_mounted | bool)

@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y.Z` git tags
 (the tag is the version imported by Ansible Galaxy).
 
+## [1.2.1] - unreleased
+
+### Fixed
+
+- Settings passed with `-e`, role params or `include_role` `vars` are applied correctly. The role used to
+  rewrite its own input variables with `set_fact`, which has a lower precedence than these sources, so the
+  rewrites were silently ignored: e.g. with `-e lisoq_qemu_args=...` QEMU started with only the user's
+  arguments (no ISO, RAM, CPU, disks, VNC, port forwarding). Derived values now live in internal
+  `__lisoq_*` facts and `lisoq_*` variables are never modified.
+- `lisoq_total_need_ram` and `lisoq_ramdisk_package_size`, when set, are used as documented instead of being
+  recalculated.
+- Ramdisk path selection: an existing tmpfs is detected (via `findmnt`) and only grown, a non-tmpfs mount on
+  `lisoq_ramdisk_path` falls back to `lisoq_ramdisk_another_path`.
+- Re-running with `lisoq_ramdisk_package_enable` no longer fails with "Device or resource busy".
+- Without hardware virtualization (no vmx/svm or /dev/kvm) QEMU runs without KVM instead of failing on modprobe.
+
 ## [1.2.0] - unreleased
 
 ### ⚠ BREAKING
@@ -70,6 +86,7 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ## [1.0.0] - 2022-09-20
 
+[1.2.1]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.2.0...1.2.1
 [1.2.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.1.0...1.2.0
 [1.1.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.4...1.1.0
 [1.0.4]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.3...1.0.4

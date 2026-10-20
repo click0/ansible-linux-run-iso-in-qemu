@@ -40,7 +40,11 @@ If you use password login to target hosts via `ssh`
 
 ## Variables
 
-See the [`defaults/main.yml`](defaults/main.yml) and examples in vars:
+See the [`defaults/main.yml`](defaults/main.yml) and examples in vars.
+All variables can be set in any usual way: inventory, play `vars`/`vars_files`, role `vars` or params,
+`include_role` `vars`, or extra vars (`-e`). The role never modifies them; values it derives are kept in
+internal `__lisoq_*` facts, so a setting passed with `-e` is applied the same way as one from a vars file.
+
 
     lisoq_qemu_enable: false
 Whether to start QEMU. With `false` the role still prepares everything (packages, ramdisk, firewall, ISO and QEMU downloads), but does not start QEMU.
@@ -150,13 +154,16 @@ Use (and create) RAM-disk partitions on the target system (before running QEMU).
 The preferred path for the RAM-disk partition.
 
     lisoq_ramdisk_another_path: '/tmp'
-The alternative path for a RAM-disk partition if it is already in use internally. Subsequently, we will expand it to the desired size.
+The alternative path for the RAM-disk partition, used when `lisoq_ramdisk_path` is already mounted with another filesystem
+(e.g. a server disk mounted on `/mnt` in rescue mode).
+If the chosen path is already a tmpfs, it is reused and grown to `used + lisoq_ramdisk_size`; it is never shrunk.
+If both paths are mounted with non-tmpfs filesystems, the role fails.
 
     lisoq_ramdisk_size: '250'
 The size of the RAM-disk partition in MiB (mebibytes).
 
     lisoq_total_need_ram: '' # (lisoq_ramdisk_size + lisoq_qemu_ram) or min 250MiB - autodetect 
-The minimum amount of RAM on the target system in MiB (mebibytes). The sum of two components - `lisoq_ramdisk_size` and `lisoq_qemu_ram`.
+The minimum amount of RAM on the target system in MiB (mebibytes). If empty, it is the sum of `lisoq_ramdisk_size` and `lisoq_qemu_ram` (at least 300 MiB).
 
     lisoq_ramdisk_package_enable: false
 Create a RAM disk to store packages on the system in directory `/var/cache/yum` or `/var/cache/apt`. Not all LiveCD systems have extra 200-400 MB to store the package base, that's why we use RAM-disk.
