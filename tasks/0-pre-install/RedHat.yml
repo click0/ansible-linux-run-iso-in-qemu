@@ -60,7 +60,7 @@
     - name: 'Ensure ramdisk {{ __var_cache_package_path }} is mounted'
       ansible.posix.mount:
         path: '{{ __var_cache_package_path }}'
-        src: tmpfs
+        src: lisoq-pkgcache # marks the role's tmpfs for purge (post-install)
         fstype: tmpfs
         opts: 'size={{ __lisoq_ramdisk_package_size | int }}M'
         state: remounted
@@ -69,7 +69,7 @@
     - name: 'Ensure ramdisk {{ __var_cache_package_path }} is not mounted'
       ansible.posix.mount:
         path: '{{ __var_cache_package_path }}'
-        src: tmpfs
+        src: lisoq-pkgcache # marks the role's tmpfs for purge (post-install)
         fstype: tmpfs
         opts: 'size={{ __lisoq_ramdisk_package_size | int }}M'
         state: ephemeral

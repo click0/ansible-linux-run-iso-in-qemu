@@ -3,8 +3,25 @@
 # Purge: unmount the package cache ramdisk to free its RAM. The directory below it is the empty one
 # created before mounting. It is not replaced by a tiny tmpfs, so later package installs (including
 # a re-run of this role) still have room for downloads.
+# Only the tmpfs mounted by this role (source lisoq-pkgcache) is unmounted, not a mount made by someone else.
+- name: Find the source of the mount on {{ __var_cache_package_path }}
+  command:
+    argv:
+      - findmnt
+      - -n
+      - -o
+      - SOURCE
+      - --mountpoint
+      - '{{ __var_cache_package_path }}'
+  register: __lisoq_package_mount_source
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: (lisoq_ramdisk_package_enable | bool) and (lisoq_ramdisk_package_purge | bool)
+
 - name: Unmount ramdisk {{ __var_cache_package_path }} if is mounted
   ansible.posix.mount:
     path: '{{ __var_cache_package_path }}'
     state: unmounted
-  when: (lisoq_ramdisk_package_enable | bool) and (lisoq_ramdisk_package_purge | bool)
+  when: (lisoq_ramdisk_package_enable | bool) and (lisoq_ramdisk_package_purge | bool) and
+        ('lisoq-pkgcache' in (__lisoq_package_mount_source.stdout_lines | default([])))
