@@ -1,22 +1,46 @@
 ---
 
-# Rules are inserted at the top of INPUT, so existing ACCEPT rules cannot bypass them.
-# DROP is inserted first and the whitelist after it, which puts ACCEPT rules above DROP.
+# The ACL lives in its own chain LISOQ_QEMU, which is flushed and rebuilt on every run, so an address
+# removed from the whitelists (or an old address of the Ansible host) loses access. INPUT only jumps
+# to it, from the top, so existing ACCEPT rules cannot bypass it. Rules that 1.1.0-1.4.0 inserted
+# directly into INPUT end up below the jump and no longer decide anything for the current ports.
+# DROP is added right after the flush and the whitelist is inserted above it, so the ports are not
+# left open while the chain is rebuilt.
 
-# IPv4
-- name: 'Disable IPv4 connections on tcp ports: {{ __lisoq_acl_ports }}'
+- name: 'Create the LISOQ_QEMU chain'
   ansible.builtin.iptables:
-    chain: INPUT
-    action: insert
+    chain: LISOQ_QEMU
+    chain_management: true
+    ip_version: '{{ item }}'
+  loop:
+    - ipv4
+    - ipv6
+
+- name: 'Flush the LISOQ_QEMU chain'
+  ansible.builtin.iptables:
+    chain: LISOQ_QEMU
+    flush: true
+    ip_version: '{{ item }}'
+  loop:
+    - ipv4
+    - ipv6
+
+- name: 'Disable connections on tcp ports: {{ __lisoq_acl_ports }}'
+  ansible.builtin.iptables:
+    chain: LISOQ_QEMU
     jump: DROP
     protocol: tcp
-    ip_version: ipv4
+    ip_version: '{{ item }}'
     destination_ports:
       - '{{ __lisoq_acl_ports | join(",") }}'
+  loop:
+    - ipv4
+    - ipv6
 
-- name: 'Insert a INPUT rule to whitelist IPv4 in iptables to ports: {{ __lisoq_acl_ports }}'
+# IPv4
+- name: 'Whitelist IPv4 for tcp ports: {{ __lisoq_acl_ports }}'
   ansible.builtin.iptables:
-    chain: INPUT
+    chain: LISOQ_QEMU
     action: insert
     protocol: tcp
     source: '{{ item }}'
@@ -27,19 +51,9 @@
   with_items: '{{ __lisoq_acl_ipv4_white }}'
 
 # IPv6
-- name: 'Disable IPv6 connections on tcp ports: {{ __lisoq_acl_ports }}'
+- name: 'Whitelist IPv6 for tcp ports: {{ __lisoq_acl_ports }}'
   ansible.builtin.iptables:
-    chain: INPUT
-    action: insert
-    jump: DROP
-    protocol: tcp
-    ip_version: ipv6
-    destination_ports:
-      - '{{ __lisoq_acl_ports | join(",") }}'
-
-- name: 'Insert a INPUT rule to whitelist IPv6 in iptables to ports: {{ __lisoq_acl_ports }}'
-  ansible.builtin.iptables:
-    chain: INPUT
+    chain: LISOQ_QEMU
     action: insert
     protocol: tcp
     source: '{{ item }}'
@@ -48,3 +62,14 @@
     ip_version: ipv6
     jump: ACCEPT
   with_items: '{{ __lisoq_acl_ipv6_white }}'
+
+- name: 'Jump from INPUT to the LISOQ_QEMU chain'
+  ansible.builtin.iptables:
+    chain: INPUT
+    action: insert
+    protocol: tcp
+    jump: LISOQ_QEMU
+    ip_version: '{{ item }}'
+  loop:
+    - ipv4
+    - ipv6
