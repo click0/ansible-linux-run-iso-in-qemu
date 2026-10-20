@@ -51,8 +51,11 @@
          else '' }}
     __lisoq_qemu_cpu: '{{ lisoq_qemu_cpu if (lisoq_qemu_cpu is truthy) else (ansible_processor_vcpus | default(1)) }}'
     __lisoq_qemu_vnc_port: '{{ (lisoq_qemu_args_port_vnc | int < 5900) | ternary(5901, lisoq_qemu_args_port_vnc | int) }}'
-    # https://stackoverflow.com/a/60526774/12646191
-    __lisoq_acl_ports: "{{ lisoq_firewall_acl_ports | default([]) | select() | reject('match', '^$') | list }}"
+    # Firewall ports = the ports QEMU actually listens on: SSH/RDP forwarding if set, and the VNC port
+    # after the same correction as below (values under 5900 mean 5901).
+    __lisoq_acl_ports: >-
+      {{ ([lisoq_qemu_args_port_ssh, lisoq_qemu_args_port_rdp] | select('truthy') | map('string') | list)
+         + [(lisoq_qemu_args_port_vnc | int < 5900) | ternary(5901, lisoq_qemu_args_port_vnc | int) | string] }}
     __lisoq_ramdisk_dir: "{{ lisoq_ramdisk_path if (lisoq_ramdisk_path is truthy) else lisoq_ramdisk_another_path }}"
     __lisoq_total_need_ram: >-
       {{ lisoq_total_need_ram if (lisoq_total_need_ram is truthy)
