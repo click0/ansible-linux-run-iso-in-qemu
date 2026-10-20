@@ -64,9 +64,10 @@
 - name: Download file 'lisoq_iso_file_url'
   ansible.builtin.get_url:
     url: '{{ __lisoq_iso_url }}'
-    dest: '{{ __lisoq_ramdisk_dir }}'
+    # A file path (not a directory), so an existing ISO is not downloaded again on every run.
+    # The name must match the -cdrom path built in 1-configure.yml.
+    dest: '{{ __lisoq_ramdisk_dir }}/{{ __lisoq_iso_url | basename }}'
     mode: '0644'
-    # (default) overwrite on source change
   when: (__lisoq_iso_url is truthy)
 
 # Extract archive
@@ -76,6 +77,7 @@
     src: '{{ __lisoq_ramdisk_dir }}/{{ __lisoq_static_local | basename }}'
     dest: '{{ __lisoq_ramdisk_dir }}'
     remote_src: true
+    creates: '{{ __lisoq_ramdisk_dir }}/qemu-system-x86_64'
   when: (__lisoq_static_local is truthy)
 
 - name: Download and unarchive file 'lisoq_qemu_static_custom_uefi_url'.
@@ -83,6 +85,7 @@
     src: '{{ lisoq_qemu_static_custom_uefi_url }}'
     dest: '{{ __lisoq_ramdisk_dir }}'
     remote_src: true
+    creates: '{{ __lisoq_ramdisk_dir }}/uefi.bin'
   when: (__lisoq_qemu_uefi | bool)
 
 - name: Download and unarchive file 'lisoq_qemu_static_custom_url'.
@@ -90,4 +93,5 @@
     src: '{{ __lisoq_static_url }}'
     dest: '{{ __lisoq_ramdisk_dir }}'
     remote_src: true
+    creates: '{{ __lisoq_ramdisk_dir }}/qemu-system-x86_64'
   when: (__lisoq_static_url is truthy)
