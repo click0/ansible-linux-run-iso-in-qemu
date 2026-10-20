@@ -258,31 +258,59 @@
                | reject('match', '^(' ~ (lisoq_qemu_exclude_disk_regular_list | join('|')) ~ ')[0-9]+')
                | difference(lisoq_qemu_exclude_disk) | list) }}
 
-# A disk is in use by the host if it, its partitions or LVM/md volumes on it are mounted or used as swap.
-# Writing to such a disk from QEMU at the same time corrupts it.
-- name: Find mount points on the selected disks
+# A disk is in use by the host if it or anything on it is mounted or used as swap, if an active
+# md array, LVM volume, dm-crypt/multipath device sits on it (they write to the disk even when not
+# mounted, e.g. an md resync), or if it belongs to an imported ZFS pool (lsblk shows no mountpoint
+# for ZFS). Writing to such a disk from QEMU at the same time corrupts it.
+- name: Find mount points and active devices on the selected disks
   command:
     argv:
       - lsblk
-      - -nro
-      - MOUNTPOINT
+      - -nr
+      - -o
+      - NAME,TYPE,MOUNTPOINT
       - '/dev/{{ item }}'
   loop: '{{ __lisoq_qemu_disks }}'
   register: __lisoq_qemu_disk_mounts
   changed_when: false
   check_mode: false
 
+- name: List devices of imported ZFS pools
+  command:
+    argv:
+      - zpool
+      - status
+      - -L
+      - -P
+  register: __lisoq_zpool_status
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: (__lisoq_qemu_disks | length > 0)
+
 - name: Set the list of disks in use by the host
   set_fact:
     __lisoq_qemu_disk_in_use: >-
-      {{ __lisoq_qemu_disk_mounts.results | default([])
-         | selectattr('stdout', 'search', '\S') | map(attribute='item') | list }}
+      {{ (__lisoq_qemu_disk_mounts.results | default([])
+         | selectattr('stdout', 'search', '(?m)^\S+ \S+ \S')
+         | map(attribute='item') | list
+         + __lisoq_qemu_disk_mounts.results | default([])
+         | selectattr('stdout', 'search', '(?m)^\S+ (?!(disk|part|loop|rom)( |$))\S+')
+         | map(attribute='item') | list
+         + __lisoq_qemu_disk_mounts.results | default([])
+         | selectattr('stdout', 'search', '(?m)^(' ~ ((__lisoq_zpool_status.stdout | default(''))
+                      | regex_findall('/dev/([A-Za-z0-9._-]+)') | map('regex_escape') | join('|')
+                      | default('(?!)', true)) ~ ') ')
+         | map(attribute='item') | list)
+         | unique }}
 
 - name: Fail if an explicitly listed disk is in use by the host
   fail:
     msg: >-
-      Disks {{ __lisoq_qemu_disk_in_use | join(', ') }} from lisoq_qemu_disk are mounted or used as swap on the host.
-      Remove them from lisoq_qemu_disk or set lisoq_qemu_disk_allow_in_use to true.
+      Disks {{ __lisoq_qemu_disk_in_use | join(', ') }} from lisoq_qemu_disk are in use by the host (mounted, swap,
+      an active md array / LVM / dm device, or an imported ZFS pool). Unmount/stop them first
+      (e.g. umount, swapoff, mdadm --stop --scan, vgchange -an, zpool export), remove them from
+      lisoq_qemu_disk, or set lisoq_qemu_disk_allow_in_use to true.
   when: (not __lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_in_use | length > 0) and
         (not lisoq_qemu_disk_allow_in_use | bool)
 
@@ -294,7 +322,10 @@
 
 - name: Report disks excluded from QEMU
   debug:
-    msg: 'Disks in use by the host are not passed to QEMU: {{ __lisoq_qemu_disk_in_use | join(", ") }}'
+    msg: >-
+      Disks in use by the host (mounted, swap, active md/LVM/dm, imported ZFS) are not passed to QEMU:
+      {{ __lisoq_qemu_disk_in_use | join(", ") }}. To pass them, stop what uses them first
+      (e.g. mdadm --stop --scan, vgchange -an, zpool export) and re-run the role.
   when: (__lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_in_use | length > 0) and
         (not lisoq_qemu_disk_allow_in_use | bool)
 
