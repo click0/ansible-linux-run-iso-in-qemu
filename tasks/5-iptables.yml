@@ -7,23 +7,36 @@
 # DROP is added right after the flush and the whitelist is inserted above it, so the ports are not
 # left open while the chain is rebuilt.
 
+# Without IPv6 in the kernel (e.g. ipv6.disable=1) ip6tables does not work; then only IPv4 rules are set.
+- name: Check whether ip6tables works
+  command: ip6tables -S INPUT
+  register: __lisoq_ip6tables_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Select IP versions for the firewall rules
+  set_fact:
+    __lisoq_ip_versions: "{{ ['ipv4'] + ((__lisoq_ip6tables_check.rc == 0) | ternary(['ipv6'], [])) }}"
+
+- name: ip6tables does not work
+  debug:
+    msg: 'ip6tables does not work on this host (IPv6 disabled?): only IPv4 firewall rules are set.'
+  when: (__lisoq_ip6tables_check.rc != 0)
+
 - name: 'Create the LISOQ_QEMU chain'
   ansible.builtin.iptables:
     chain: LISOQ_QEMU
     chain_management: true
     ip_version: '{{ item }}'
-  loop:
-    - ipv4
-    - ipv6
+  loop: '{{ __lisoq_ip_versions }}'
 
 - name: 'Flush the LISOQ_QEMU chain'
   ansible.builtin.iptables:
     chain: LISOQ_QEMU
     flush: true
     ip_version: '{{ item }}'
-  loop:
-    - ipv4
-    - ipv6
+  loop: '{{ __lisoq_ip_versions }}'
 
 - name: 'Disable connections on tcp ports: {{ __lisoq_acl_ports }}'
   ansible.builtin.iptables:
@@ -33,9 +46,7 @@
     ip_version: '{{ item }}'
     destination_ports:
       - '{{ __lisoq_acl_ports | join(",") }}'
-  loop:
-    - ipv4
-    - ipv6
+  loop: '{{ __lisoq_ip_versions }}'
 
 # IPv4
 - name: 'Whitelist IPv4 for tcp ports: {{ __lisoq_acl_ports }}'
@@ -62,6 +73,7 @@
     ip_version: ipv6
     jump: ACCEPT
   with_items: '{{ __lisoq_acl_ipv6_white }}'
+  when: ('ipv6' in __lisoq_ip_versions)
 
 - name: 'Jump from INPUT to the LISOQ_QEMU chain'
   ansible.builtin.iptables:
@@ -70,6 +82,4 @@
     protocol: tcp
     jump: LISOQ_QEMU
     ip_version: '{{ item }}'
-  loop:
-    - ipv4
-    - ipv6
+  loop: '{{ __lisoq_ip_versions }}'
