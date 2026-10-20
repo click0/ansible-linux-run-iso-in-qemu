@@ -64,8 +64,12 @@ URL location with the statically compiled QEMU archive(tar.gz).
 Relative path inside the statically compiled QEMU archive to auxiliary files (BIOS, keyboard layout etc).
 
     lisoq_qemu_static_custom_uefi_url: 'https://support.org.ua/Soft/vKVM/orig/uefi.tar.gz'
-Auxiliary UEFI BIOS archive URL to support block devices larger than 2 TiB.
-It is downloaded and passed to QEMU (`-bios uefi.bin`) only with `lisoq_qemu_static_custom_enable: true` and when any of the `lisoq_qemu_disk` devices is larger than 2 TiB.
+UEFI firmware archive (`uefi.bin`) used with `lisoq_qemu_uefi: true`.
+
+    lisoq_qemu_uefi: false
+Boot QEMU with UEFI firmware (`-bios uefi.bin`) instead of the default BIOS (SeaBIOS). Requires `lisoq_qemu_static_custom_enable: true`.
+Enable it only if the OS must be installed or booted in UEFI mode, and only with an ISO that supports UEFI boot
+(the default mfsbsd 14.2 ISO does, older mfsbsd 12.x ISOs do not). Disks larger than 2 TiB are fully usable in BIOS mode as well.
 
     lisoq_qemu_args_port_ssh: '1022'
 External port for ssh forwarding to QEMU internal port `22`.
@@ -141,7 +145,7 @@ Full path to the ISO image file on the host machine from which the Ansible role 
     lisoq_iso_file_remote: '' 
 ISO image file location path on a remote host.
 
-    lisoq_iso_file_url: 'https://mfsbsd.vx.sk/files/iso/12/amd64/mfsbsd-12.2-RELEASE-amd64.iso'
+    lisoq_iso_file_url: 'https://mfsbsd.vx.sk/files/iso/14/amd64/mfsbsd-14.2-RELEASE-amd64.iso'
 URL location with ISO image file.
 
     lisoq_iso_file_ssh_port: '22' 
@@ -219,7 +223,7 @@ You can override them in the playbook and inventory.
 
     lisoq_qemu_enable: true
     lisoq_qemu_static_custom_enable: true
-    lisoq_iso_file_url: 'https://mfsbsd.vx.sk/files/iso/12/amd64/mfsbsd-12.2-RELEASE-amd64.iso'
+    lisoq_iso_file_url: 'https://mfsbsd.vx.sk/files/iso/14/amd64/mfsbsd-14.2-RELEASE-amd64.iso'
     lisoq_qemu_vnc_type: 'share'
     lisoq_qemu_boot_once_cd: false
     lisoq_qemu_ram: '650'

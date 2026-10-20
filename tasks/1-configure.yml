@@ -271,14 +271,29 @@
   when: >-
     (ansible_devices[item].sectors|int * ansible_devices[item].sectorsize|int) > (2 * 1024 * 1024 * 1024 * 1024)
 
-- name: Decide whether the UEFI firmware is needed.
+# UEFI is opt-in: SeaBIOS sees disks larger than 2 TiB as well (the 2 TiB limit is MBR's), and many ISOs
+# (e.g. mfsbsd 12.2, the default before 1.3.0) have no UEFI boot loader, so forcing UEFI made them unbootable.
+- name: Decide whether the UEFI firmware is used.
   set_fact:
-    __lisoq_qemu_uefi: >-
-      {{ (__lisoq_qemu_static | bool) and (__lisoq_qemu_disk_large | bool) and
-         (lisoq_qemu_static_custom_uefi_url | length > 0) }}
+    __lisoq_qemu_uefi: '{{ lisoq_qemu_uefi | bool }}'
+
+- name: Fail if UEFI is requested without static QEMU
+  fail:
+    msg: >-
+      lisoq_qemu_uefi requires lisoq_qemu_static_custom_enable: true and lisoq_qemu_static_custom_uefi_url
+      (the UEFI firmware comes from that archive).
+  when: (__lisoq_qemu_uefi | bool) and
+        ((not __lisoq_qemu_static | bool) or (lisoq_qemu_static_custom_uefi_url | length == 0))
+
+- name: Hint about UEFI for disks larger than 2 TiB
+  debug:
+    msg: >-
+      A disk larger than 2 TiB is passed to QEMU. It is fully usable in BIOS mode; set lisoq_qemu_uefi: true
+      only if the OS must be installed/booted in UEFI mode and the ISO supports UEFI boot.
+  when: (__lisoq_qemu_disk_large | bool) and (not __lisoq_qemu_uefi | bool)
 
 # uefi.bin is extracted from lisoq_qemu_static_custom_uefi_url in upload_files.yml (same condition).
-- name: Add UEFI firmware to qemu_args for disks larger than 2 TiB.
+- name: Add UEFI firmware to qemu_args.
   set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -bios {{ __lisoq_ramdisk_dir }}/uefi.bin'
   when: (__lisoq_qemu_uefi | bool)
