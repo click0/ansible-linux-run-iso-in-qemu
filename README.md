@@ -176,7 +176,7 @@ Create a RAM disk to store packages on the system in directory `/var/cache/yum` 
 The amount of MB of RAM that we can allocate for the correct installation of packages on the system. Empirically, it was found that you need a minimum of 300 MB. Afterwards, we can clean up this directory.
 
     lisoq_ramdisk_package_purge: false
-Clean up the packages directory. Use this option very carefully if you have to install additional packages to the system after completing the role.
+After installing packages, unmount the package cache ramdisk to free its RAM. The package cache directory is left empty; installing packages later (or re-running the role) still works.
 
     lisoq_firewall_acl_enable: false 
 Allow ACLs to whitelist IP's/net's and some listening ports (for example, `{{ lisoq_qemu_args_port_ssh }}` and `{{ lisoq_qemu_args_port_vnc }}`). Connections from other IPs to these ports are dropped. Whitelists are separate for IPv4 and IPv6 networks.
