@@ -96,6 +96,15 @@
   when: (lisoq_firewall_acl_enable | bool) and (lisoq_firewall_acl_allow_ansible_ip | bool) and
         (__lisoq_ansible_ip | length == 0)
 
+# Otherwise the start tasks are all skipped and the play "succeeds" without a VM.
+- name: Check that a QEMU source is selected
+  fail:
+    msg: >-
+      lisoq_qemu_enable is true, but no QEMU is selected: set lisoq_qemu_install: true (QEMU from the package
+      repository) or lisoq_qemu_static_custom_enable: true (static QEMU from lisoq_qemu_static_custom_url/_local).
+  when: (lisoq_qemu_enable | bool) and (not __lisoq_qemu_package | bool) and
+        (__lisoq_static_local is falsy) and (__lisoq_static_url is falsy)
+
 # Without -vnc QEMU opens a GTK/SDL window and fails on a headless server.
 - name: Check lisoq_qemu_vnc_type
   fail:
