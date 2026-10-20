@@ -237,17 +237,17 @@
 
 - name: Add the local ISO option to qemu_args.
   set_fact:
-    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ __lisoq_ramdisk_dir }}/{{ __lisoq_iso_local | basename }}'
+    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ (__lisoq_ramdisk_dir ~ "/" ~ (__lisoq_iso_local | basename)) | quote }}'
   when: (__lisoq_iso_local is truthy)
 
 - name: Add the remote ISO option to qemu_args.
   set_fact:
-    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ __lisoq_iso_remote }}'
+    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ __lisoq_iso_remote | quote }}'
   when: (__lisoq_iso_remote is truthy)
 
 - name: Add an ISO URL option to qemu_args. We will download this ISO later.
   set_fact:
-    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ __lisoq_ramdisk_dir }}/{{ __lisoq_iso_url | basename }}'
+    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ (__lisoq_ramdisk_dir ~ "/" ~ (__lisoq_iso_url | basename)) | quote }}'
   when: (__lisoq_iso_url is truthy)
 
 - name: Add the count of CPU to qemu_args.

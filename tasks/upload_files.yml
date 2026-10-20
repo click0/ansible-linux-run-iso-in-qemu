@@ -19,7 +19,7 @@
     rsync --copy-links --times
     --rsh="sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
     -p {{ __lisoq_ssh_port }} -l {{ __lisoq_ssh_user }}"
-    {{ __lisoq_iso_local }} {{ __lisoq_ssh_host }}:{{ __lisoq_ramdisk_dir }}/
+    {{ __lisoq_iso_local | quote }} {{ __lisoq_ssh_host }}:{{ __lisoq_ramdisk_dir | quote }}/
   ignore_errors: '{{ ansible_check_mode }}'
   environment:
     SSHPASS: '{{ __lisoq_ssh_password }}'
@@ -41,7 +41,7 @@
     rsync --copy-links --times
     --rsh="sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
     -p {{ __lisoq_ssh_port }} -l {{ __lisoq_ssh_user }}"
-    {{ __lisoq_static_local }} {{ __lisoq_ssh_host }}:{{ __lisoq_ramdisk_dir }}/
+    {{ __lisoq_static_local | quote }} {{ __lisoq_ssh_host }}:{{ __lisoq_ramdisk_dir | quote }}/
   check_mode: false
   environment:
     SSHPASS: '{{ __lisoq_ssh_password }}'
