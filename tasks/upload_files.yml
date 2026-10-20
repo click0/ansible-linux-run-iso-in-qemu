@@ -11,7 +11,7 @@
     __lisoq_ssh_user: "{{ ansible_ssh_user | default(ansible_user) | default('root') }}"
     __lisoq_ssh_password: "{{ ansible_ssh_password | default(ansible_ssh_pass) | default(ansible_password) | default('') }}"
   no_log: true
-  when: (lisoq_iso_file_local is truthy) or (lisoq_qemu_static_custom_local is truthy)
+  when: (__lisoq_iso_local is truthy) or (__lisoq_static_local is truthy)
 
 - name: Upload file 'lisoq_iso_file_local' via ssh
   # https://stackoverflow.com/a/71651490/12646191
@@ -19,76 +19,75 @@
     rsync --copy-links --times
     --rsh="sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
     -p {{ __lisoq_ssh_port }} -l {{ __lisoq_ssh_user }}"
-    {{ lisoq_iso_file_local }} {{ __lisoq_ssh_host }}:{{ lisoq_ramdisk_path }}/
+    {{ __lisoq_iso_local }} {{ __lisoq_ssh_host }}:{{ __lisoq_ramdisk_dir }}/
   ignore_errors: '{{ ansible_check_mode }}'
   environment:
     SSHPASS: '{{ __lisoq_ssh_password }}'
   no_log: true
   delegate_to: 127.0.0.1
-  when: (lisoq_iso_file_local is truthy) and (__lisoq_ssh_password | length > 0)
+  when: (__lisoq_iso_local is truthy) and (__lisoq_ssh_password | length > 0)
 
 - name: Upload file 'lisoq_iso_file_local' via module 'synchronize'.
   ansible.posix.synchronize:
-    src: '{{ lisoq_iso_file_local }}'
-    dest: '{{ lisoq_ramdisk_path }}'
+    src: '{{ __lisoq_iso_local }}'
+    dest: '{{ __lisoq_ramdisk_dir }}'
     # (default) overwrite on source change
     copy_links: true # Copy symlinks as the item
   ignore_errors: '{{ ansible_check_mode }}'
-  when: (lisoq_iso_file_local is truthy) and (__lisoq_ssh_password | length == 0)
+  when: (__lisoq_iso_local is truthy) and (__lisoq_ssh_password | length == 0)
 
 - name: Upload file 'lisoq_qemu_static_custom_local' via ssh.
   command: >-
     rsync --copy-links --times
     --rsh="sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
     -p {{ __lisoq_ssh_port }} -l {{ __lisoq_ssh_user }}"
-    {{ lisoq_qemu_static_custom_local }} {{ __lisoq_ssh_host }}:{{ lisoq_ramdisk_path }}/
+    {{ __lisoq_static_local }} {{ __lisoq_ssh_host }}:{{ __lisoq_ramdisk_dir }}/
   check_mode: false
   environment:
     SSHPASS: '{{ __lisoq_ssh_password }}'
   no_log: true
   delegate_to: 127.0.0.1
-  when: (lisoq_qemu_static_custom_enable | bool) and (lisoq_qemu_static_custom_local is truthy) and
+  when: (__lisoq_static_local is truthy) and
         (__lisoq_ssh_password | length > 0)
 
 - name: Upload file 'lisoq_qemu_static_custom_local' via module 'synchronize'.
   ansible.posix.synchronize:
-    src: '{{ lisoq_qemu_static_custom_local }}'
-    dest: '{{ lisoq_ramdisk_path }}'
+    src: '{{ __lisoq_static_local }}'
+    dest: '{{ __lisoq_ramdisk_dir }}'
     copy_links: true
   check_mode: false
-  when: (lisoq_qemu_static_custom_enable | bool) and (lisoq_qemu_static_custom_local is truthy) and
+  when: (__lisoq_static_local is truthy) and
         (__lisoq_ssh_password | length == 0)
 
 # Download files (from Internet)
 
 - name: Download file 'lisoq_iso_file_url'
   ansible.builtin.get_url:
-    url: '{{ lisoq_iso_file_url }}'
-    dest: '{{ lisoq_ramdisk_path }}'
+    url: '{{ __lisoq_iso_url }}'
+    dest: '{{ __lisoq_ramdisk_dir }}'
     mode: '0644'
     # (default) overwrite on source change
-  when: (lisoq_iso_file_url is truthy)
+  when: (__lisoq_iso_url is truthy)
 
 # Extract archive
 
 - name: Unarchive file 'lisoq_qemu_static_custom_local'.
   ansible.builtin.unarchive:
-    src: '{{ lisoq_ramdisk_path }}/{{ lisoq_qemu_static_custom_local | basename }}'
-    dest: '{{ lisoq_ramdisk_path }}'
+    src: '{{ __lisoq_ramdisk_dir }}/{{ __lisoq_static_local | basename }}'
+    dest: '{{ __lisoq_ramdisk_dir }}'
     remote_src: true
-  when: (lisoq_qemu_static_custom_enable | bool) and (lisoq_qemu_static_custom_local is truthy)
+  when: (__lisoq_static_local is truthy)
 
 - name: Download and unarchive file 'lisoq_qemu_static_custom_uefi_url'.
   ansible.builtin.unarchive:
     src: '{{ lisoq_qemu_static_custom_uefi_url }}'
-    dest: '{{ lisoq_ramdisk_path }}'
+    dest: '{{ __lisoq_ramdisk_dir }}'
     remote_src: true
-  when: (lisoq_qemu_static_custom_enable | bool) and (lisoq_qemu_disk_large_detect | bool) and
-        (lisoq_qemu_static_custom_uefi_url|length > 0)
+  when: (__lisoq_qemu_uefi | bool)
 
 - name: Download and unarchive file 'lisoq_qemu_static_custom_url'.
   ansible.builtin.unarchive:
-    src: '{{ lisoq_qemu_static_custom_url }}'
-    dest: '{{ lisoq_ramdisk_path }}'
+    src: '{{ __lisoq_static_url }}'
+    dest: '{{ __lisoq_ramdisk_dir }}'
     remote_src: true
-  when: (lisoq_qemu_static_custom_enable | bool) and (lisoq_qemu_static_custom_url is truthy)
+  when: (__lisoq_static_url is truthy)
