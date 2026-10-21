@@ -10,6 +10,9 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ### Changed
 
+- Autodetected disks are passed to QEMU in name order (before: in the order the kernel listed them, which could
+  change between runs). ZFS zvols (`zd*`) and `bcache*` devices are excluded from autodetection.
+
 - If IPv6 is enabled but `ip6tables` does not work, the firewall step fails instead of setting IPv4 rules only
   (QEMU's VNC with `lisoq_qemu_vnc_type: share` also listens on IPv6).
 
@@ -25,6 +28,10 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
   archives contain a `./` entry); with a custom archive packed by a normal user the next run refused to continue.
 - Check mode no longer fails on a host without the work directory (the ISO download and the archive extraction
   are skipped), and no longer uploads `lisoq_qemu_static_custom_local` as a file named like the work directory.
+- `lisoq_qemu_disk` given as a string (`'sda'`, `'sda,sdb'`) was split into single characters; names with `/dev/`
+  work too.
+- Partitions (or other devices missing from `ansible_devices`) in `lisoq_qemu_disk` failed the 2 TiB check.
+- A message is printed when no disks are passed to QEMU.
 - A `-name` in `lisoq_qemu_args` no longer hides the running VM from the role (a re-run started a second QEMU on
   the same disks): `-name lisoq` now comes after `lisoq_qemu_args`.
 - Password-based uploads work with paths containing spaces also with rsync older than 3.2.4 on the control node.

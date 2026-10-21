@@ -297,14 +297,18 @@
   set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -m {{ lisoq_qemu_ram }}M'
 
+# lisoq_qemu_disk may also be a string ('sda,sdb' or 'sda sdb') and names may start with /dev/.
+# Autodetected disks are sorted, so they keep their order in QEMU between runs.
 - name: Select disks for QEMU (lisoq_qemu_disk or autodetect).
   set_fact:
     __lisoq_qemu_disk_autodetect: '{{ lisoq_qemu_disk is falsy }}'
     __lisoq_qemu_disks: >-
-      {{ (lisoq_qemu_disk | list) if (lisoq_qemu_disk is truthy)
+      {{ (((lisoq_qemu_disk | regex_replace(',', ' ')).split()) if (lisoq_qemu_disk is string)
+          else (lisoq_qemu_disk | list)) | map('regex_replace', '^/dev/', '') | list
+         if (lisoq_qemu_disk is truthy)
          else (ansible_devices.keys()
                | reject('match', '^(' ~ (lisoq_qemu_exclude_disk_regular_list | join('|')) ~ ')[0-9]+')
-               | difference(lisoq_qemu_exclude_disk) | list) }}
+               | difference(lisoq_qemu_exclude_disk) | sort | list) }}
 
 # A disk is in use by the host if it or anything on it is mounted or used as swap, if an active
 # md array, LVM volume, dm-crypt/multipath device sits on it (they write to the disk even when not
@@ -377,16 +381,32 @@
   when: (__lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_in_use | length > 0) and
         (not lisoq_qemu_disk_allow_in_use | bool)
 
-- name: Reset the large disk flag
-  set_fact:
-    __lisoq_qemu_disk_large: false
+- name: Report that QEMU gets no disks
+  debug:
+    msg: 'No disks are passed to QEMU (see lisoq_qemu_disk and the messages above).'
+  when: (__lisoq_qemu_disks | length == 0)
 
-- name: Detect disk size largest 2TiB
-  set_fact:
-    __lisoq_qemu_disk_large: true
+# lsblk instead of ansible_devices: lisoq_qemu_disk may also list partitions or other block devices.
+- name: Find the size of the selected disks
+  command:
+    argv:
+      - lsblk
+      - -b
+      - -d
+      - -n
+      - -o
+      - SIZE
+      - '/dev/{{ item }}'
   loop: '{{ __lisoq_qemu_disks }}'
-  when: >-
-    (ansible_devices[item].sectors|int * ansible_devices[item].sectorsize|int) > (2 * 1024 * 1024 * 1024 * 1024)
+  register: __lisoq_qemu_disk_sizes
+  changed_when: false
+  check_mode: false
+
+- name: Detect disks larger than 2 TiB
+  set_fact:
+    __lisoq_qemu_disk_large: >-
+      {{ __lisoq_qemu_disk_sizes.results | default([]) | map(attribute='stdout') | map('trim') | map('int')
+         | select('gt', 2 * 1024 * 1024 * 1024 * 1024) | list | length > 0 }}
 
 # UEFI is opt-in: SeaBIOS sees disks larger than 2 TiB as well (the 2 TiB limit is MBR's), and many ISOs
 # (e.g. mfsbsd 12.2, the default before 1.4.0) have no UEFI boot loader, so forcing UEFI made them unbootable.

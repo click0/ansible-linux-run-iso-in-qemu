@@ -95,8 +95,9 @@ How much RAM (in MiB) can you use inside QEMU.
 How much CPU core can you use inside QEMU. By default `''` and role allocates all CPU cores for QEMU use.
 
     lisoq_qemu_disk: ''
-List of block disk devices to connect to QEMU. By default, the role mounts all found block devices from the host machine.
-You can specify your own list of block devices:
+List of block disk devices to connect to QEMU. By default, the role passes all block devices found on the host machine
+(except `lisoq_qemu_exclude_disk*`, in name order). You can specify your own list of block devices
+(a string such as `'sda,sdb'` works too):
 
     lisoq_qemu_disk:
       - 'sda'
@@ -104,10 +105,13 @@ You can specify your own list of block devices:
 <br>
 
     lisoq_qemu_disk_allow_in_use: false
-Disks that are in use by the host (the disk, its partitions or LVM/md volumes on it are mounted or used as swap) are not passed to QEMU,
-because writing to them from QEMU at the same time corrupts them. Autodetected disks in use are skipped with a message;
-if such a disk is listed explicitly in `lisoq_qemu_disk`, the role fails. Set to `true` to pass them anyway (at your own risk).
-On a rescue system booted into RAM, the server disks are not mounted, so all of them are passed as before.
+Disks that are in use by the host are not passed to QEMU, because writing to them from QEMU at the same time corrupts them:
+the disk or anything on it is mounted or used as swap, an active md array, LVM volume or dm-crypt/multipath device sits on it
+(they write to the disk even when not mounted, e.g. an md resync), or it belongs to an imported ZFS pool.
+Autodetected disks in use are skipped with a message; if such a disk is listed explicitly in `lisoq_qemu_disk`, the role fails.
+Set to `true` to pass them anyway (at your own risk).
+Rescue systems often assemble md arrays (and activate LVM) automatically: stop them first (`mdadm --stop --scan`,
+`vgchange -an`, `zpool export`), otherwise these disks are skipped.
 <br>
 
     lisoq_qemu_exclude_disk:
@@ -126,6 +130,8 @@ You can override the variable yourself and add your own block devices to the exc
       - 'zram'
       - 'nbd'
       - 'md'
+      - 'zd'
+      - 'bcache'
 
 A list of block devices without a numeric suffix to be excluded from the list for intra-OS connection in QEMU.
 Based on the `lisoq_qemu_exclude_disk_regular_list` variable inside the role, a regular expression will be generated.
