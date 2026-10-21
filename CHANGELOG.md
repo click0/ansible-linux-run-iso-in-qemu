@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y.Z` git tags
 (the tag is the version imported by Ansible Galaxy).
 
-## [Unreleased]
+## [1.5.0] - 2026-10-21
 
 ### ⚠ Changed
 
@@ -37,13 +37,17 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 - On multi-user hosts another user can no longer plant the QEMU binary or the ISO in the world-writable ramdisk
   path for root to run.
 
-## [1.4.0] - 2026-10-20
+## [1.4.0] - 2026-10-21
+
+First release after 1.2.1. Versions 1.2.2 and 1.3.0 were never tagged; their changes are included here.
 
 ### ⚠ Changed
 
 - `lisoq_firewall_acl_enable` is `true` by default. The QEMU forwarded ports (VM SSH 1022, RDP, VNC) were open to
   everyone, and live ISOs such as mfsbsd have a well-known root password. Now they are reachable only from the
   whitelists. Set `lisoq_firewall_acl_enable: false` to restore the old behaviour.
+- The default ISO (`lisoq_iso_file_url`) is mfsbsd 14.2 instead of 12.2 (FreeBSD 12 is end-of-life).
+  It boots in both BIOS and UEFI mode. Set `lisoq_iso_file_url` explicitly to keep the old image.
 - On RedHat the role no longer stops `firewalld` when the ACL is enabled (that removed the filtering of all
   other ports of the server); it prints a warning that `firewall-cmd --reload` drops the ACL rules.
 
@@ -51,39 +55,21 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 - `lisoq_firewall_acl_allow_ansible_ip` (default `true`): the address the Ansible control node connects from,
   as seen by the server (`SSH_CONNECTION`), is added to the whitelist automatically.
-
-### Fixed
-
-- `lisoq_ramdisk_package_purge` no longer leaves a 1 MiB tmpfs on the package cache directory, which broke any
-  later package download, including a re-run of the role.
-
-## [1.3.0] - 2026-10-20
-
-### Changed
-
-- The default ISO (`lisoq_iso_file_url`) is mfsbsd 14.2 instead of 12.2 (FreeBSD 12 is end-of-life).
-  It boots in both BIOS and UEFI mode. Set `lisoq_iso_file_url` explicitly to keep the old image.
-
-### Added
-
 - `lisoq_qemu_uefi` (default `false`): boot QEMU with the UEFI firmware (`-bios uefi.bin`).
   Requires `lisoq_qemu_static_custom_enable: true` and an ISO with a UEFI boot loader.
 
 ### Fixed
 
-- Since 1.2.1, static QEMU was started with `-bios uefi.bin` automatically when a disk was larger than 2 TiB,
+- In 1.2.1 static QEMU was started with `-bios uefi.bin` automatically when a disk was larger than 2 TiB,
   so ISOs without a UEFI boot loader (including the previous default mfsbsd 12.2) did not boot at all
   ("Boot Failed. EFI DVD/CDROM"). UEFI is now opt-in; such disks are fully usable in BIOS mode,
   the role only prints a hint about `lisoq_qemu_uefi`.
-
-## [1.2.2] - 2026-10-20
-
-### Fixed
-
 - The ISO and the static QEMU/UEFI archives are no longer downloaded again on every run
   (the ISO is saved to an explicit file path, the archives are extracted only once).
 - `lisoq_qemu_vnc_type` is validated: values other than `local`/`share` used to start QEMU without `-vnc`,
   which fails on a headless server.
+- `lisoq_ramdisk_package_purge` no longer leaves a 1 MiB tmpfs on the package cache directory, which broke any
+  later package download, including a re-run of the role.
 
 ## [1.2.1] - 2026-10-20
 
@@ -151,9 +137,8 @@ First release after 1.0.3. Versions 1.0.4, 1.1.0 and 1.2.0 were never tagged; th
 
 ## [1.0.0] - 2022-09-20
 
-[1.4.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.3.0...1.4.0
-[1.3.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.2.2...1.3.0
-[1.2.2]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.2.1...1.2.2
+[1.5.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.4.0...1.5.0
+[1.4.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.2.1...1.4.0
 [1.2.1]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.3...1.2.1
 [1.0.3]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.2...1.0.3
 [1.0.2]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.1...1.0.2
