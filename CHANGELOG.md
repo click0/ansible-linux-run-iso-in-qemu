@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y.Z` git tags
 (the tag is the version imported by Ansible Galaxy).
 
+## [Unreleased]
+
+### Fixed
+
+- The ramdisk is no longer mounted on top of `lisoq_ramdisk_path` when a filesystem is mounted below it
+  (e.g. a server disk on `/mnt/data`): that hid the disk's files. `lisoq_ramdisk_another_path` is used instead.
+
 ## [1.5.0] - 2026-10-21
 
 ### ⚠ Changed
@@ -137,6 +144,7 @@ First release after 1.0.3. Versions 1.0.4, 1.1.0 and 1.2.0 were never tagged; th
 
 ## [1.0.0] - 2022-09-20
 
+[Unreleased]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.5.0...HEAD
 [1.5.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.4.0...1.5.0
 [1.4.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.2.1...1.4.0
 [1.2.1]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.3...1.2.1

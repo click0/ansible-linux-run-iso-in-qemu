@@ -125,7 +125,7 @@
   block:
 
     # lisoq_ramdisk_path is preferred. lisoq_ramdisk_another_path is used when the first one is already
-    # mounted with another filesystem (e.g. a server disk mounted on /mnt in rescue mode).
+    # mounted with another filesystem or has one mounted below it (e.g. a server disk on /mnt in rescue mode).
     # An existing tmpfs is reused and only grown, never shrunk.
     # ansible_mounts skips tmpfs, so ask findmnt. Output: FSTYPE SOURCE SIZE AVAIL (bytes), last line = top mount.
     - name: Find existing mounts of the ramdisk paths
@@ -147,6 +147,13 @@
       failed_when: __lisoq_ramdisk_findmnt.rc > 1
       check_mode: false
 
+    # A new tmpfs on a directory would hide the filesystems mounted below it (e.g. a server disk on /mnt/data).
+    - name: List all mount points
+      command: findmnt -n -r -o TARGET
+      register: __lisoq_ramdisk_targets
+      changed_when: false
+      check_mode: false
+
     - name: Parse existing mounts of the ramdisk paths
       set_fact:
         __lisoq_ramdisk_main_mount: >-
@@ -155,23 +162,41 @@
         __lisoq_ramdisk_other_mount: >-
           {{ ((__lisoq_ramdisk_findmnt.results[1].stdout_lines | last)
               if __lisoq_ramdisk_findmnt.results[1].stdout_lines else '').split() }}
+        __lisoq_ramdisk_main_submounts: >-
+          {{ __lisoq_ramdisk_targets.stdout_lines
+             | select('match', (lisoq_ramdisk_path | regex_replace('/+$', '') | regex_escape) ~ '/')
+             | list }}
+        __lisoq_ramdisk_other_submounts: >-
+          {{ __lisoq_ramdisk_targets.stdout_lines
+             | select('match', (lisoq_ramdisk_another_path | regex_replace('/+$', '') | regex_escape) ~ '/')
+             | list }}
 
+    # Usable: an existing tmpfs (it is only remounted), or a directory that is not a mount point and has
+    # nothing mounted below it.
     - name: Choose the ramdisk path
       set_fact:
-        __lisoq_ramdisk_dir: >-
-          {{ ((__lisoq_ramdisk_main_mount | first | default('tmpfs')) == 'tmpfs')
-             | ternary(lisoq_ramdisk_path, lisoq_ramdisk_another_path) }}
-        __lisoq_ramdisk_mount: >-
-          {{ ((__lisoq_ramdisk_main_mount | first | default('tmpfs')) == 'tmpfs')
-             | ternary(__lisoq_ramdisk_main_mount, __lisoq_ramdisk_other_mount) }}
+        __lisoq_ramdisk_main_ok: >-
+          {{ ((__lisoq_ramdisk_main_mount | first | default('')) == 'tmpfs')
+             or ((__lisoq_ramdisk_main_mount is falsy) and (__lisoq_ramdisk_main_submounts is falsy)) }}
+        __lisoq_ramdisk_other_ok: >-
+          {{ ((__lisoq_ramdisk_other_mount | first | default('')) == 'tmpfs')
+             or ((__lisoq_ramdisk_other_mount is falsy) and (__lisoq_ramdisk_other_submounts is falsy)) }}
 
     - name: Fail if neither ramdisk path is free or tmpfs
       fail:
         msg: >-
-          Cannot create the ramdisk: {{ __lisoq_ramdisk_dir }} is mounted with
-          {{ __lisoq_ramdisk_mount | first }}. Set lisoq_ramdisk_path or lisoq_ramdisk_another_path
-          to a free directory.
-      when: (__lisoq_ramdisk_mount | first | default('tmpfs')) != 'tmpfs'
+          Cannot create the ramdisk: {{ lisoq_ramdisk_path }} and {{ lisoq_ramdisk_another_path }}
+          are mounted with another filesystem or have filesystems mounted below them
+          ({{ (__lisoq_ramdisk_main_submounts + __lisoq_ramdisk_other_submounts) | join(', ') }}).
+          Set lisoq_ramdisk_path or lisoq_ramdisk_another_path to a free directory.
+      when: (not __lisoq_ramdisk_main_ok | bool) and (not __lisoq_ramdisk_other_ok | bool)
+
+    - name: Remember the chosen ramdisk path
+      set_fact:
+        __lisoq_ramdisk_dir: >-
+          {{ (__lisoq_ramdisk_main_ok | bool) | ternary(lisoq_ramdisk_path, lisoq_ramdisk_another_path) }}
+        __lisoq_ramdisk_mount: >-
+          {{ (__lisoq_ramdisk_main_ok | bool) | ternary(__lisoq_ramdisk_main_mount, __lisoq_ramdisk_other_mount) }}
 
     - name: Calculate the ramdisk size
       set_fact:

@@ -159,9 +159,10 @@ The preferred path for the RAM-disk partition. The role keeps its files (ISO, QE
 
     lisoq_ramdisk_another_path: '/tmp'
 The alternative path for the RAM-disk partition, used when `lisoq_ramdisk_path` is already mounted with another filesystem
-(e.g. a server disk mounted on `/mnt` in rescue mode).
+or has a filesystem mounted below it (e.g. a server disk mounted on `/mnt` or `/mnt/data` in rescue mode; a tmpfs on top
+would hide it).
 If the chosen path is already a tmpfs, it is reused and grown to `used + lisoq_ramdisk_size`; it is never shrunk.
-If both paths are mounted with non-tmpfs filesystems, the role fails.
+If neither path is usable, the role fails.
 
     lisoq_ramdisk_size: '250'
 The size of the RAM-disk partition in MiB (mebibytes).
