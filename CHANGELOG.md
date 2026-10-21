@@ -32,6 +32,10 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
   work too.
 - Partitions (or other devices missing from `ansible_devices`) in `lisoq_qemu_disk` failed the 2 TiB check.
 - A message is printed when no disks are passed to QEMU.
+- Hosts of other OS families are skipped with a message (as the per-OS task files intended) instead of failing
+  on a missing vars file.
+- The first step no longer runs `apt-get update` and reports "changed" on every run when `python3-apt` is already
+  installed.
 - A `-name` in `lisoq_qemu_args` no longer hides the running VM from the role (a re-run started a second QEMU on
   the same disks): `-name lisoq` now comes after `lisoq_qemu_args`.
 - Password-based uploads work with paths containing spaces also with rsync older than 3.2.4 on the control node.

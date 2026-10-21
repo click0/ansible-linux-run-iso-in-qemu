@@ -57,7 +57,7 @@ lisoq_ramdisk_package_enable: false
 lisoq_ramdisk_package_size: '' # in MiB (mebibyte) - autodetect
 lisoq_ramdisk_package_purge: false
 
-lisoq_total_need_ram: '' # (lisoq_ramdisk_size + lisoq_qemu_ram) or min 250MiB - autodetect
+lisoq_total_need_ram: '' # (lisoq_ramdisk_size + lisoq_qemu_ram) or min 300MiB - autodetect
 
 lisoq_firewall_acl_enable: true # allow the QEMU ports (ssh, rdp, vnc forwarding) only from the whitelists below
 lisoq_firewall_acl_allow_ansible_ip: true # also allow the address the Ansible control node connects from

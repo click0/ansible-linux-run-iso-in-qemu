@@ -174,8 +174,9 @@ If neither path is usable, the role fails.
     lisoq_ramdisk_size: '250'
 The size of the RAM-disk partition in MiB (mebibytes).
 
-    lisoq_total_need_ram: '' # (lisoq_ramdisk_size + lisoq_qemu_ram) or min 250MiB - autodetect 
+    lisoq_total_need_ram: '' # (lisoq_ramdisk_size + lisoq_qemu_ram) or min 300MiB - autodetect
 The minimum amount of RAM on the target system in MiB (mebibytes). If empty, it is the sum of `lisoq_ramdisk_size` and `lisoq_qemu_ram` (at least 300 MiB).
+In any case the role requires at least 512 MiB of RAM on the target system and 256 MiB of free RAM for QEMU.
 
     lisoq_ramdisk_package_enable: false
 Create a RAM disk to store packages on the system in directory `/var/cache/yum` or `/var/cache/apt`. Not all LiveCD systems have extra 200-400 MB to store the package base, that's why we use RAM-disk.
