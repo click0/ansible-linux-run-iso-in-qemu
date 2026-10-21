@@ -25,6 +25,9 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
   archives contain a `./` entry); with a custom archive packed by a normal user the next run refused to continue.
 - Check mode no longer fails on a host without the work directory (the ISO download and the archive extraction
   are skipped), and no longer uploads `lisoq_qemu_static_custom_local` as a file named like the work directory.
+- A `-name` in `lisoq_qemu_args` no longer hides the running VM from the role (a re-run started a second QEMU on
+  the same disks): `-name lisoq` now comes after `lisoq_qemu_args`.
+- Password-based uploads work with paths containing spaces also with rsync older than 3.2.4 on the control node.
 - The password-based uploads report "changed" only when a file was actually transferred.
 - `lisoq_firewall_acl_enable: false` removes the `LISOQ_QEMU` chain left by an earlier run; before, the old
   whitelist was enforced until reboot.

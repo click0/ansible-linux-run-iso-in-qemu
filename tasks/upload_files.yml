@@ -60,7 +60,7 @@
     - name: Upload file 'lisoq_iso_file_local' via ssh
       # https://stackoverflow.com/a/71651490/12646191
       command: >-
-        rsync --copy-links --times --itemize-changes
+        rsync --copy-links --times --itemize-changes --protect-args
         --rsh="sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
         -p {{ __lisoq_ssh_port }} -l {{ __lisoq_ssh_user }}"
         {{ __lisoq_iso_local | quote }} {{ __lisoq_ssh_host }}:{{ __lisoq_work_dir | quote }}/
@@ -84,7 +84,7 @@
 
     - name: Upload file 'lisoq_qemu_static_custom_local' via ssh.
       command: >-
-        rsync --copy-links --times --itemize-changes
+        rsync --copy-links --times --itemize-changes --protect-args
         --rsh="sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
         -p {{ __lisoq_ssh_port }} -l {{ __lisoq_ssh_user }}"
         {{ __lisoq_static_local | quote }} {{ __lisoq_ssh_host }}:{{ __lisoq_work_dir | quote }}/

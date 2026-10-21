@@ -236,10 +236,11 @@
 
 # QEMU command line: lisoq_qemu_args from the user plus the options added by the role.
 
-# '-name lisoq' marks the VM started by this role (see start_qemu.yml).
+# '-name lisoq' marks the VM started by this role (see start_qemu.yml). It comes after lisoq_qemu_args:
+# QEMU uses the last -name, so a -name in lisoq_qemu_args cannot hide the VM from the role.
 - name: Start the QEMU command line with lisoq_qemu_args.
   set_fact:
-    __lisoq_qemu_cmd: '-name lisoq {{ lisoq_qemu_args }}'
+    __lisoq_qemu_cmd: '{{ lisoq_qemu_args }} -name lisoq'
 
 - name: Add net user options to qemu_args. Only port {{ lisoq_qemu_args_port_ssh }}
   set_fact:
