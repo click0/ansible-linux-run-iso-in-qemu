@@ -155,7 +155,8 @@ Sshd port that accepts connections _inside_ ISO image.
 Use (and create) RAM-disk partitions on the target system (before running QEMU).
 
     lisoq_ramdisk_path: '/mnt'
-The preferred path for the RAM-disk partition. The role keeps its files (ISO, QEMU archives) in the `lisoq` subdirectory of the chosen path.
+The preferred path for the RAM-disk partition. The role keeps its files (ISO, QEMU archives) in the `lisoq` subdirectory of the chosen path
+(mode 0700, owned by the user the role runs as, or by `ansible_user` when files are uploaded with a password).
 
     lisoq_ramdisk_another_path: '/tmp'
 The alternative path for the RAM-disk partition, used when `lisoq_ramdisk_path` is already mounted with another filesystem

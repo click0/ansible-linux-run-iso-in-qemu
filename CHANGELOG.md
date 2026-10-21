@@ -19,6 +19,13 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
   ports it still listens on: they stay in the firewall ACL until it is stopped.
 - The firewall ACL is updated without a window in which the ports are open (new rules are added before the old
   ones are removed), and an unchanged ACL no longer reports changes on every run.
+- Uploads with a password as a non-root `ansible_user` (README Example #2 with become) failed with "Permission
+  denied": the work directory was private to root. It is now owned by `ansible_user` in this case.
+- Extracting the QEMU/UEFI archives no longer changes the owner and mode of the work directory (both default
+  archives contain a `./` entry); with a custom archive packed by a normal user the next run refused to continue.
+- Check mode no longer fails on a host without the work directory (the ISO download and the archive extraction
+  are skipped), and no longer uploads `lisoq_qemu_static_custom_local` as a file named like the work directory.
+- The password-based uploads report "changed" only when a file was actually transferred.
 - `lisoq_firewall_acl_enable: false` removes the `LISOQ_QEMU` chain left by an earlier run; before, the old
   whitelist was enforced until reboot.
 
