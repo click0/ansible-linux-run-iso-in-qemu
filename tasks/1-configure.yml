@@ -49,7 +49,9 @@
       {{ lisoq_iso_file_url
          if ((lisoq_iso_file_local is falsy) and (lisoq_iso_file_remote is falsy) and (lisoq_iso_file_url is truthy))
          else '' }}
-    __lisoq_qemu_cpu: '{{ lisoq_qemu_cpu if (lisoq_qemu_cpu is truthy) else (ansible_processor_vcpus | default(1)) }}'
+    # The 'pc' machine takes at most 255 CPUs; QEMU does not start with more (servers with 256+ threads).
+    __lisoq_qemu_cpu: >-
+      {{ lisoq_qemu_cpu if (lisoq_qemu_cpu is truthy) else ([ansible_processor_vcpus | default(1) | int, 255] | min) }}
     __lisoq_qemu_vnc_port: '{{ (lisoq_qemu_args_port_vnc | int < 5900) | ternary(5901, lisoq_qemu_args_port_vnc | int) }}'
     # The QEMU of this role: '-name lisoq'; older role versions are recognised by the SSH port forwarding.
     # Other VMs on the host (e.g. from libvirt) do not count.
@@ -255,12 +257,20 @@
         __lisoq_ramdisk_size_mib: >-
           {{ [__lisoq_ramdisk_cur_mib | int, (__lisoq_ramdisk_used_mib | int) + (lisoq_ramdisk_size | int)] | max }}
 
+    - name: Check the ramdisk directory
+      ansible.builtin.stat:
+        path: '{{ __lisoq_ramdisk_dir }}'
+      register: __lisoq_ramdisk_dir_stat
+      when: (__lisoq_ramdisk_mount is falsy)
+
+    # Only a missing directory is created. The mode of an existing one (e.g. /mnt) is kept: it is the mode
+    # of the mount point again after the tmpfs is unmounted. The tmpfs root itself is 01777.
     - name: Ensure ramdisk directory exists
       ansible.builtin.file:
         dest: '{{ __lisoq_ramdisk_dir }}'
-        mode: '01777'
+        mode: '0755'
         state: directory
-      when: (__lisoq_ramdisk_mount is falsy)
+      when: (__lisoq_ramdisk_mount is falsy) and (not __lisoq_ramdisk_dir_stat.stat.exists)
 
     - name: Ensure ramdisk {{ __lisoq_ramdisk_dir }} is mounted
       ansible.posix.mount:
