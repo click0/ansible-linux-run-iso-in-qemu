@@ -71,6 +71,52 @@
     msg: '{{ __lisoq_work_dir }} would be created; uploads and downloads into it are not checked.'
   when: (ansible_check_mode) and (not __lisoq_work_dir_stat.stat.exists)
 
+# Checksums are verified only with lisoq_checksum_enable. Format '<algorithm>:<hex digest>'; for files
+# downloaded from a URL also '<algorithm>:<URL of a checksum file>' (as get_url accepts).
+- name: Select the checksums to verify
+  set_fact:
+    __lisoq_checksum_iso: >-
+      {{ (lisoq_iso_file_checksum | default('', true))
+         if ((lisoq_checksum_enable | bool) and ((__lisoq_iso_local is truthy) or (__lisoq_iso_remote is truthy)
+             or (__lisoq_iso_url is truthy))) else '' }}
+    __lisoq_checksum_static: >-
+      {{ (lisoq_qemu_static_custom_checksum | default('', true))
+         if ((lisoq_checksum_enable | bool) and ((__lisoq_static_local is truthy) or (__lisoq_static_url is truthy)))
+         else '' }}
+    __lisoq_checksum_uefi: >-
+      {{ (lisoq_qemu_static_custom_uefi_checksum | default('', true))
+         if ((lisoq_checksum_enable | bool) and (__lisoq_qemu_uefi | bool)) else '' }}
+
+- name: Check the checksum settings
+  fail:
+    msg: >-
+      lisoq_checksum_enable is true, but {{ item.var }} is {{ 'empty' if (item.value is falsy) else 'invalid' }}
+      ('{{ item.value }}'). Expected '<algorithm>:<hex digest>' (md5, sha1, sha224, sha256, sha384, sha512)
+      {{- ", or '<algorithm>:<URL of a checksum file>' for a download" if (item.url | bool) else '' }}.
+  loop:
+    - var: lisoq_iso_file_checksum
+      value: '{{ lisoq_iso_file_checksum | default("") }}'
+      used: '{{ (__lisoq_iso_local is truthy) or (__lisoq_iso_remote is truthy) or (__lisoq_iso_url is truthy) }}'
+      url: '{{ __lisoq_iso_url is truthy }}'
+    - var: lisoq_qemu_static_custom_checksum
+      value: '{{ lisoq_qemu_static_custom_checksum | default("") }}'
+      used: '{{ (__lisoq_static_local is truthy) or (__lisoq_static_url is truthy) }}'
+      url: '{{ __lisoq_static_url is truthy }}'
+    - var: lisoq_qemu_static_custom_uefi_checksum
+      value: '{{ lisoq_qemu_static_custom_uefi_checksum | default("") }}'
+      used: '{{ __lisoq_qemu_uefi | bool }}'
+      url: true
+  loop_control:
+    label: '{{ item.var }}'
+  vars:
+    __lisoq_checksum_hex_re: '^(md5|sha1|sha224|sha256|sha384|sha512):[0-9A-Fa-f]+$'
+    __lisoq_checksum_url_re: '^(md5|sha1|sha224|sha256|sha384|sha512):(https?|ftp|file)://'
+  when:
+    - lisoq_checksum_enable | bool
+    - item.used | bool
+    - item.value is not match(__lisoq_checksum_hex_re)
+    - not ((item.url | bool) and (item.value is match(__lisoq_checksum_url_re)))
+
 - name: Upload, download and extract files
   when: (not ansible_check_mode) or (__lisoq_work_dir_stat.stat.exists)
   block:
@@ -129,6 +175,7 @@
         src: '{{ __lisoq_static_local }}'
         dest: '{{ __lisoq_work_dir }}/'
         copy_links: true
+      register: __lisoq_sync_static
       ignore_errors: '{{ ansible_check_mode }}'
       when: (__lisoq_static_local is truthy) and
             (__lisoq_ssh_password | length == 0)
@@ -142,11 +189,55 @@
         # The name must match the -cdrom path built in 1-configure.yml.
         dest: '{{ __lisoq_work_dir }}/{{ __lisoq_iso_url | basename }}'
         mode: '0644'
+        # With a checksum an existing file is verified too, and downloaded again if it does not match.
+        checksum: '{{ __lisoq_checksum_iso | default(omit, true) }}'
       when: (__lisoq_iso_url is truthy)
+
+    # A local or remote ISO is verified on the target (after the upload).
+    - name: Calculate the checksum of the ISO
+      ansible.builtin.stat:
+        path: >-
+          {{ (__lisoq_work_dir ~ '/' ~ (__lisoq_iso_local | basename)) if (__lisoq_iso_local is truthy)
+             else __lisoq_iso_remote }}
+        get_checksum: true
+        checksum_algorithm: "{{ __lisoq_checksum_iso.split(':')[0] }}"
+      register: __lisoq_iso_stat
+      when: (__lisoq_checksum_iso is truthy) and ((__lisoq_iso_local is truthy) or (__lisoq_iso_remote is truthy))
+
+    - name: Verify the checksum of the ISO
+      fail:
+        msg: >-
+          Checksum mismatch for {{ __lisoq_iso_stat.stat.path | default('the ISO') }}:
+          {{ __lisoq_checksum_iso.split(':')[0] }} is {{ __lisoq_iso_stat.stat.checksum | default('(missing file)') }},
+          expected {{ __lisoq_checksum_iso.split(':', 1)[1] | lower }} (lisoq_iso_file_checksum).
+      when: >-
+        (__lisoq_iso_stat.stat is defined) and (not (ansible_check_mode and not __lisoq_iso_stat.stat.exists))
+        and ((__lisoq_iso_stat.stat.checksum | default('')) != (__lisoq_checksum_iso.split(':', 1)[1] | lower))
 
     # Extract archive
     # Archives packed with a './' entry (both default ones) would otherwise give the work directory the owner
     # and mode stored in the archive (e.g. 0755 or the packing user's uid).
+    # Without checksums an archive is extracted once ('creates'), straight from the URL. With checksums it is
+    # downloaded to the work directory (get_url verifies it) or verified after the upload, and extracted by
+    # extract_verified.yml, so the extracted files come from the verified archive.
+
+    - name: Calculate the checksum of 'lisoq_qemu_static_custom_local'
+      ansible.builtin.stat:
+        path: '{{ __lisoq_work_dir }}/{{ __lisoq_static_local | basename }}'
+        get_checksum: true
+        checksum_algorithm: "{{ __lisoq_checksum_static.split(':')[0] }}"
+      register: __lisoq_static_stat
+      when: (__lisoq_static_local is truthy) and (__lisoq_checksum_static is truthy)
+
+    - name: Verify the checksum of 'lisoq_qemu_static_custom_local'
+      fail:
+        msg: >-
+          Checksum mismatch for {{ __lisoq_static_stat.stat.path }}:
+          {{ __lisoq_checksum_static.split(':')[0] }} is {{ __lisoq_static_stat.stat.checksum | default('(missing file)') }},
+          expected {{ __lisoq_checksum_static.split(':', 1)[1] | lower }} (lisoq_qemu_static_custom_checksum).
+      when: >-
+        (__lisoq_static_stat.stat is defined) and (not (ansible_check_mode and not __lisoq_static_stat.stat.exists))
+        and ((__lisoq_static_stat.stat.checksum | default('')) != (__lisoq_checksum_static.split(':', 1)[1] | lower))
 
     - name: Unarchive file 'lisoq_qemu_static_custom_local'.
       ansible.builtin.unarchive:
@@ -157,7 +248,30 @@
         creates: '{{ __lisoq_work_dir }}/qemu-system-x86_64'
       # In check mode the archive may not have been uploaded.
       ignore_errors: '{{ ansible_check_mode }}'
-      when: (__lisoq_static_local is truthy)
+      when: (__lisoq_static_local is truthy) and (__lisoq_checksum_static is falsy)
+
+    - name: Extract the verified 'lisoq_qemu_static_custom_local'.
+      include_tasks: extract_verified.yml
+      vars:
+        __lisoq_archive: '{{ __lisoq_work_dir }}/{{ __lisoq_static_local | basename }}'
+        __lisoq_archive_new: '{{ (__lisoq_upload_static is changed) or (__lisoq_sync_static is changed) }}'
+      when: (__lisoq_static_local is truthy) and (__lisoq_checksum_static is truthy)
+
+    - name: Download file 'lisoq_qemu_static_custom_uefi_url' (checksum)
+      ansible.builtin.get_url:
+        url: '{{ lisoq_qemu_static_custom_uefi_url }}'
+        dest: '{{ __lisoq_work_dir }}/{{ lisoq_qemu_static_custom_uefi_url | basename }}'
+        mode: '0644'
+        checksum: '{{ __lisoq_checksum_uefi }}'
+      register: __lisoq_download_uefi
+      when: (__lisoq_qemu_uefi | bool) and (__lisoq_checksum_uefi is truthy)
+
+    - name: Extract the verified 'lisoq_qemu_static_custom_uefi_url'.
+      include_tasks: extract_verified.yml
+      vars:
+        __lisoq_archive: '{{ __lisoq_work_dir }}/{{ lisoq_qemu_static_custom_uefi_url | basename }}'
+        __lisoq_archive_new: '{{ __lisoq_download_uefi is changed }}'
+      when: (__lisoq_qemu_uefi | bool) and (__lisoq_checksum_uefi is truthy)
 
     - name: Download and unarchive file 'lisoq_qemu_static_custom_uefi_url'.
       ansible.builtin.unarchive:
@@ -166,7 +280,23 @@
         remote_src: true
         extra_opts: '{{ [] if (lisoq_qemu_static_custom_uefi_url is search("[.]zip$")) else ["--no-same-owner", "--no-overwrite-dir"] }}'
         creates: '{{ __lisoq_work_dir }}/uefi.bin'
-      when: (__lisoq_qemu_uefi | bool)
+      when: (__lisoq_qemu_uefi | bool) and (__lisoq_checksum_uefi is falsy)
+
+    - name: Download file 'lisoq_qemu_static_custom_url' (checksum)
+      ansible.builtin.get_url:
+        url: '{{ __lisoq_static_url }}'
+        dest: '{{ __lisoq_work_dir }}/{{ __lisoq_static_url | basename }}'
+        mode: '0644'
+        checksum: '{{ __lisoq_checksum_static }}'
+      register: __lisoq_download_static
+      when: (__lisoq_static_url is truthy) and (__lisoq_checksum_static is truthy)
+
+    - name: Extract the verified 'lisoq_qemu_static_custom_url'.
+      include_tasks: extract_verified.yml
+      vars:
+        __lisoq_archive: '{{ __lisoq_work_dir }}/{{ __lisoq_static_url | basename }}'
+        __lisoq_archive_new: '{{ __lisoq_download_static is changed }}'
+      when: (__lisoq_static_url is truthy) and (__lisoq_checksum_static is truthy)
 
     - name: Download and unarchive file 'lisoq_qemu_static_custom_url'.
       ansible.builtin.unarchive:
@@ -175,4 +305,4 @@
         remote_src: true
         extra_opts: '{{ [] if (__lisoq_static_url is search("[.]zip$")) else ["--no-same-owner", "--no-overwrite-dir"] }}'
         creates: '{{ __lisoq_work_dir }}/qemu-system-x86_64'
-      when: (__lisoq_static_url is truthy)
+      when: (__lisoq_static_url is truthy) and (__lisoq_checksum_static is falsy)

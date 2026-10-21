@@ -8,6 +8,12 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ## [Unreleased]
 
+### Added
+
+- Checksum verification of the ISO, the static QEMU archive and the UEFI archive: `lisoq_checksum_enable`
+  (default `false`), `lisoq_iso_file_checksum`, `lisoq_qemu_static_custom_checksum`,
+  `lisoq_qemu_static_custom_uefi_checksum` (defaults: the sha256 of the default files).
+
 ### Changed
 
 - Disks under an active bcache device and all members of a mounted multi-device btrfs filesystem are treated as in

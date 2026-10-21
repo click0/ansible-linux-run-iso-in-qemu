@@ -1,0 +1,38 @@
+---
+
+# Extract a verified archive (__lisoq_archive, on the target) into the work directory once per archive
+# content: the marker file keeps the sha256 of the archive that was extracted, so a new archive (e.g.
+# after a changed checksum) is extracted again, and files from an unverified archive are replaced.
+# __lisoq_archive_new: the archive was downloaded or uploaded again in this run (e.g. a damaged copy was
+# replaced), so it is extracted again too.
+- name: 'Calculate the sha256 of {{ __lisoq_archive | basename }}'
+  ansible.builtin.stat:
+    path: '{{ __lisoq_archive }}'
+    get_checksum: true
+    checksum_algorithm: sha256
+  register: __lisoq_archive_stat
+
+- name: 'Read the extraction marker of {{ __lisoq_archive | basename }}'
+  ansible.builtin.slurp:
+    src: '{{ __lisoq_archive }}.extracted'
+  register: __lisoq_archive_marker
+  failed_when: false
+
+- name: 'Extract {{ __lisoq_archive | basename }}'
+  ansible.builtin.unarchive:
+    src: '{{ __lisoq_archive }}'
+    dest: '{{ __lisoq_work_dir }}'
+    remote_src: true
+    extra_opts: '{{ [] if (__lisoq_archive is search("[.]zip$")) else ["--no-same-owner", "--no-overwrite-dir"] }}'
+  register: __lisoq_archive_extract
+  when:
+    - __lisoq_archive_stat.stat.exists
+    - (__lisoq_archive_new | bool) or
+      ((__lisoq_archive_marker.content | default('') | b64decode | trim) != __lisoq_archive_stat.stat.checksum)
+
+- name: 'Write the extraction marker of {{ __lisoq_archive | basename }}'
+  ansible.builtin.copy:
+    content: '{{ __lisoq_archive_stat.stat.checksum }}'
+    dest: '{{ __lisoq_archive }}.extracted'
+    mode: '0600'
+  when: __lisoq_archive_extract is changed
