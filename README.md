@@ -65,6 +65,7 @@ URL location with the statically compiled QEMU archive(tar.gz).
 
     lisoq_qemu_static_custom_relative_dir: '/share/qemu/'
 Relative path inside the statically compiled QEMU archive to auxiliary files (BIOS, keyboard layout etc).
+Leading and trailing slashes are optional; empty means `share/qemu`.
 
     lisoq_qemu_static_custom_uefi_url: 'https://support.org.ua/Soft/vKVM/orig/uefi.tar.gz'
 UEFI firmware archive (`uefi.bin`) used with `lisoq_qemu_uefi: true`.

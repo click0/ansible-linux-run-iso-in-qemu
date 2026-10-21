@@ -21,6 +21,18 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ### Fixed
 
+- Re-running while the VM is up no longer fails the "QEMU need more RAM" check (the free RAM is used by the running
+  VM, which is not restarted).
+- `lisoq_qemu_static_custom_relative_dir` without a leading slash (e.g. `share/qemu`) or empty broke the static
+  QEMU start (keymaps not found); slashes are now optional and empty means `share/qemu`. The static QEMU binary,
+  `-L` and `-bios` paths are quoted.
+- Check mode no longer uploads `lisoq_qemu_static_custom_local` to the target.
+- Autodetected empty or read-only block devices (e.g. an empty card reader or IPMI virtual floppy) are no longer
+  passed to QEMU, which could not open them and did not start.
+- Excluding disks in use no longer changes the order of the remaining disks.
+- `lisoq_ramdisk_size` counts towards the required RAM only when `lisoq_ramdisk_enable` is set.
+- Ramdisk paths with spaces fail with a clear message (`ansible.posix.mount` cannot remount them).
+
 - With `ansible_become: true` in the inventory the address of the Ansible host was not whitelisted: the inventory
   variable overrode the task's `become: false`, and sudo removed `SSH_CONNECTION`.
 - Password-based uploads ran `rsync` via sudo on the control node when the play used become (failed without

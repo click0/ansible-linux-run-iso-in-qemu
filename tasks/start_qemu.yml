@@ -24,22 +24,20 @@
 
 - name: Starting qemu (lisoq_qemu_static_custom_url)
   block:
-    - name: 'Create a directory
-    "{{ __lisoq_work_dir }}{{ lisoq_qemu_static_custom_relative_dir }}"
-     if it does not exist'
+    - name: 'Create the static QEMU data directory {{ __lisoq_static_data_dir }}'
       ansible.builtin.file:
-        path: >-
-          {{ __lisoq_work_dir }}{{ lisoq_qemu_static_custom_relative_dir }}
+        path: '{{ __lisoq_static_data_dir }}'
         state: directory
         mode: '0755'
 
+    # chdir: '-k keymaps/common' is relative to the data directory.
     - name: Starting qemu qemu-system-x86_64
       command: >-
-        {{ __lisoq_work_dir }}/qemu-system-x86_64
-        -L {{ __lisoq_work_dir }}/{{ lisoq_qemu_static_custom_relative_dir }}
+        {{ (__lisoq_work_dir ~ '/qemu-system-x86_64') | quote }}
+        -L {{ __lisoq_static_data_dir | quote }}
         {{ __lisoq_qemu_cmd }}
       args:
-        chdir: '{{ __lisoq_work_dir }}{{ lisoq_qemu_static_custom_relative_dir }}'
+        chdir: '{{ __lisoq_static_data_dir }}'
       ignore_errors: '{{ ansible_check_mode }}'
   when: >-
     ((__lisoq_static_local is truthy) or (__lisoq_static_url is truthy)) and

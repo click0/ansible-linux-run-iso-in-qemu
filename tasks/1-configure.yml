@@ -54,7 +54,7 @@
     # The QEMU of this role: '-name lisoq'; older role versions are recognised by the SSH port forwarding.
     # Other VMs on the host (e.g. from libvirt) do not count.
     __lisoq_qemu_pgrep_pattern: >-
-      ^([^ ]*/)?qemu-system-x86_64 .*(-name lisoq( |$)
+      ^(.*/)?qemu-system-x86_64 .*(-name lisoq( |$)
       {%- if lisoq_qemu_args_port_ssh is truthy %}|hostfwd=tcp::{{ lisoq_qemu_args_port_ssh }}-{% endif %})
     # Firewall ports = the ports QEMU actually listens on: SSH/RDP forwarding if set, and the VNC port
     # after the same correction as below (values under 5900 mean 5901).
@@ -64,7 +64,8 @@
     __lisoq_ramdisk_dir: "{{ lisoq_ramdisk_path if (lisoq_ramdisk_path is truthy) else lisoq_ramdisk_another_path }}"
     __lisoq_total_need_ram: >-
       {{ lisoq_total_need_ram if (lisoq_total_need_ram is truthy)
-         else [lisoq_ramdisk_size | int + lisoq_qemu_ram | int, __need_ram | int] | max }}
+         else [((lisoq_ramdisk_enable | bool) | ternary(lisoq_ramdisk_size | int, 0)) + lisoq_qemu_ram | int,
+               __need_ram | int] | max }}
 
 # Firewall whitelist: user networks plus the address the Ansible control node connects from, as seen by
 # the server. SSH_CONNECTION is 'client_ip client_port server_ip server_port'; it is read without become,
@@ -124,13 +125,32 @@
     msg: "not enough RAM!"
   when: (ansible_memory_mb.real.total < 512) or (ansible_memory_mb.real.total < (__lisoq_total_need_ram | int))
 
+# A running QEMU of the role is not restarted (start_qemu.yml), and the RAM it uses is not free.
+- name: Check whether the QEMU of the role is already running
+  command:
+    argv:
+      - pgrep
+      - -f
+      - '{{ __lisoq_qemu_pgrep_pattern }}'
+  register: __lisoq_qemu_running_early
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
 - name: We use fail if we do not have enough RAM for QEMU
   fail:
     msg: "QEMU need more RAM ( > 256 MiB )!"
-  when: ((lisoq_qemu_ram | int) < 256 ) or (ansible_memory_mb.nocache.free < 256)
+  when: ((lisoq_qemu_ram | int) < 256 ) or
+        ((ansible_memory_mb.nocache.free < 256) and (__lisoq_qemu_running_early.rc != 0))
 
 - name: if RamDISK enabled
   block:
+
+    # ansible.posix.mount cannot remount such a path (it splits the output of 'mount -v' at spaces).
+    - name: Check the ramdisk paths
+      fail:
+        msg: 'lisoq_ramdisk_path and lisoq_ramdisk_another_path must not contain spaces.'
+      when: (lisoq_ramdisk_path is search('\s')) or (lisoq_ramdisk_another_path is search('\s'))
 
     # lisoq_ramdisk_path is preferred. lisoq_ramdisk_another_path is used when the first one is already
     # mounted with another filesystem or has one mounted below it (e.g. a server disk on /mnt in rescue mode).
@@ -247,9 +267,14 @@
 # Files of the role (ISO, QEMU archives, uefi.bin) are kept in a private subdirectory: the ramdisk path
 # is world-writable (tmpfs root, /tmp fallback) and existing files are reused on re-runs, so another
 # local user could otherwise plant a binary or an ISO there. See upload_files.yml.
+# Static QEMU runs in its data directory (BIOS, keymaps): lisoq_qemu_static_custom_relative_dir inside the
+# work directory, with or without leading/trailing slashes.
 - name: Set the work directory of the role
   set_fact:
     __lisoq_work_dir: '{{ __lisoq_ramdisk_dir }}/lisoq'
+    __lisoq_static_data_dir: >-
+      {{ __lisoq_ramdisk_dir }}/lisoq/{{ lisoq_qemu_static_custom_relative_dir | default('', true)
+         | regex_replace('^/+|/+$', '') | default('share/qemu', true) }}
 
 # QEMU command line: lisoq_qemu_args from the user plus the options added by the role.
 
@@ -408,7 +433,7 @@
 
 - name: Exclude autodetected disks in use by the host
   set_fact:
-    __lisoq_qemu_disks: '{{ __lisoq_qemu_disks | difference(__lisoq_qemu_disk_in_use) }}'
+    __lisoq_qemu_disks: "{{ __lisoq_qemu_disks | reject('in', __lisoq_qemu_disk_in_use) | list }}"
   when: (__lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_in_use | length > 0) and
         (not lisoq_qemu_disk_allow_in_use | bool)
 
@@ -421,12 +446,8 @@
   when: (__lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_in_use | length > 0) and
         (not lisoq_qemu_disk_allow_in_use | bool)
 
-- name: Report that QEMU gets no disks
-  debug:
-    msg: 'No disks are passed to QEMU (see lisoq_qemu_disk and the messages above).'
-  when: (__lisoq_qemu_disks | length == 0)
-
 # lsblk instead of ansible_devices: lisoq_qemu_disk may also list partitions or other block devices.
+# Output: size in bytes, read-only flag.
 - name: Find the size of the selected disks
   command:
     argv:
@@ -435,17 +456,45 @@
       - -d
       - -n
       - -o
-      - SIZE
+      - SIZE,RO
       - '/dev/{{ item }}'
   loop: '{{ __lisoq_qemu_disks }}'
   register: __lisoq_qemu_disk_sizes
   changed_when: false
   check_mode: false
 
+# QEMU cannot open them read-write (e.g. an empty card reader or IPMI virtual floppy), and then does not start.
+- name: Find empty and read-only disks
+  set_fact:
+    __lisoq_qemu_disk_unusable: >-
+      {{ __lisoq_qemu_disk_sizes.results | default([])
+         | rejectattr('stdout', 'match', '^\s*[1-9][0-9]*\s+0\s*$')
+         | map(attribute='item') | list }}
+
+- name: Exclude autodetected empty and read-only disks
+  set_fact:
+    __lisoq_qemu_disks: "{{ __lisoq_qemu_disks | reject('in', __lisoq_qemu_disk_unusable) | list }}"
+  when: (__lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_unusable | length > 0)
+
+- name: Report empty and read-only disks
+  debug:
+    msg: >-
+      {{ (__lisoq_qemu_disk_autodetect | bool)
+         | ternary('Empty or read-only block devices are not passed to QEMU: ',
+                   'QEMU may fail to open these empty or read-only block devices from lisoq_qemu_disk: ') }}
+      {{- __lisoq_qemu_disk_unusable | join(', ') }}
+  when: (__lisoq_qemu_disk_unusable | length > 0)
+
+- name: Report that QEMU gets no disks
+  debug:
+    msg: 'No disks are passed to QEMU (see lisoq_qemu_disk and the messages above).'
+  when: (__lisoq_qemu_disks | length == 0)
+
 - name: Detect disks larger than 2 TiB
   set_fact:
     __lisoq_qemu_disk_large: >-
-      {{ __lisoq_qemu_disk_sizes.results | default([]) | map(attribute='stdout') | map('trim') | map('int')
+      {{ __lisoq_qemu_disk_sizes.results | default([]) | selectattr('item', 'in', __lisoq_qemu_disks)
+         | map(attribute='stdout') | map('split') | map('first') | map('int')
          | select('gt', 2 * 1024 * 1024 * 1024 * 1024) | list | length > 0 }}
 
 # UEFI is opt-in: SeaBIOS sees disks larger than 2 TiB as well (the 2 TiB limit is MBR's), and many ISOs
@@ -472,7 +521,7 @@
 # uefi.bin is extracted from lisoq_qemu_static_custom_uefi_url in upload_files.yml (same condition).
 - name: Add UEFI firmware to qemu_args.
   set_fact:
-    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -bios {{ __lisoq_work_dir }}/uefi.bin'
+    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -bios {{ (__lisoq_work_dir ~ "/uefi.bin") | quote }}'
   when: (__lisoq_qemu_uefi | bool)
 
 # Disks go to the IDE bus as before while they fit: the 'pc' machine has 4 IDE slots and -cdrom takes one.

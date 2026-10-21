@@ -112,7 +112,7 @@
         {{ __lisoq_static_local | quote }} {{ __lisoq_rsync_host }}:{{ __lisoq_work_dir | quote }}/
       register: __lisoq_upload_static
       changed_when: __lisoq_upload_static.stdout is truthy
-      check_mode: false
+      ignore_errors: '{{ ansible_check_mode }}'
       environment:
         SSHPASS: '{{ __lisoq_ssh_password }}'
       no_log: true
@@ -129,7 +129,7 @@
         src: '{{ __lisoq_static_local }}'
         dest: '{{ __lisoq_work_dir }}/'
         copy_links: true
-      check_mode: false
+      ignore_errors: '{{ ansible_check_mode }}'
       when: (__lisoq_static_local is truthy) and
             (__lisoq_ssh_password | length == 0)
 
@@ -155,6 +155,8 @@
         remote_src: true
         extra_opts: '{{ [] if (__lisoq_static_local is search("[.]zip$")) else ["--no-same-owner", "--no-overwrite-dir"] }}'
         creates: '{{ __lisoq_work_dir }}/qemu-system-x86_64'
+      # In check mode the archive may not have been uploaded.
+      ignore_errors: '{{ ansible_check_mode }}'
       when: (__lisoq_static_local is truthy)
 
     - name: Download and unarchive file 'lisoq_qemu_static_custom_uefi_url'.
