@@ -34,6 +34,7 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 - A message is printed when no disks are passed to QEMU.
 - Hosts of other OS families are skipped with a message (as the per-OS task files intended) instead of failing
   on a missing vars file.
+- An existing ramdisk tmpfs that is large enough is no longer remounted (reported "changed" on every run).
 - The first step no longer runs `apt-get update` and reports "changed" on every run when `python3-apt` is already
   installed.
 - A `-name` in `lisoq_qemu_args` no longer hides the running VM from the role (a re-run started a second QEMU on

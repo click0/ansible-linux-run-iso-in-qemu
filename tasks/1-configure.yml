@@ -225,6 +225,10 @@
         fstype: tmpfs
         opts: 'size={{ __lisoq_ramdisk_size_mib }}M'
         state: ephemeral
+      # An existing tmpfs that is large enough is left alone (a remount would report a change on every run).
+      when: (__lisoq_ramdisk_mount is falsy) or
+            ((((__lisoq_ramdisk_mount[2] | default(0) | int) / 1048576) | round(0, 'ceil') | int)
+             < (__lisoq_ramdisk_size_mib | int))
   when: (lisoq_ramdisk_enable | bool)
 
 # Files of the role (ISO, QEMU archives, uefi.bin) are kept in a private subdirectory: the ramdisk path
