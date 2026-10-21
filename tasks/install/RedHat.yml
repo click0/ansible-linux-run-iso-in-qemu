@@ -25,23 +25,6 @@
     state: present
   when: (__lisoq_iso_local is truthy) or (__lisoq_static_local is truthy)
 
-# firewalld is not stopped: that would drop the filtering of all other ports of the server.
-# The ACL rules are inserted with iptables next to it; 'firewall-cmd --reload' removes them.
-- name: '{{ ansible_os_family }} | Check whether firewalld is running'
-  command: systemctl is-active firewalld
-  register: __lisoq_firewalld_state
-  changed_when: false
-  failed_when: false
-  check_mode: false
-  when: (lisoq_firewall_acl_enable | bool)
-
-- name: '{{ ansible_os_family }} | firewalld is running'
-  debug:
-    msg: >-
-      firewalld is running and is left as is. The QEMU port ACL is added with iptables next to it;
-      'firewall-cmd --reload' or a firewalld restart removes these rules (re-run the role to restore them).
-  when: (lisoq_firewall_acl_enable | bool) and (__lisoq_firewalld_state.stdout | default('') == 'active')
-
 # iptables-services is not used by the role; on EL8+ it is only in EPEL. On EL9 'iptables' could also
 # resolve to iptables-legacy from EPEL, so the nft variant of the base OS is named explicitly.
 - name: '{{ ansible_os_family }} | Install iptables'

@@ -151,3 +151,24 @@
     jump: LISOQ_QEMU
     ip_version: '{{ item }}'
   loop: '{{ __lisoq_ip_versions }}'
+
+# firewalld is not stopped: that would drop the filtering of all other ports of the server. With its nftables
+# backend (EL8+) it filters in its own table, where an ACCEPT of the ACL does not count, so whitelisted clients
+# were rejected. The QEMU ports are therefore opened in its runtime configuration (default zone); the ACL still
+# drops everyone else. 'firewall-cmd --reload' removes the opened ports (and with the iptables backend also the
+# ACL), so the ports are closed until the role is run again.
+- name: Check whether firewalld is running
+  command: firewall-cmd --state
+  register: __lisoq_firewalld_state
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Open the QEMU ports in firewalld (runtime configuration)
+  shell: >-
+    for p in {{ __lisoq_acl_ports_all | join(' ') }}; do
+    firewall-cmd -q --query-port="$p/tcp" || { firewall-cmd -q --add-port="$p/tcp" && echo "opened $p/tcp"; } || exit 1;
+    done
+  register: __lisoq_firewalld_open
+  changed_when: __lisoq_firewalld_open.stdout is truthy
+  when: __lisoq_firewalld_state.rc == 0
