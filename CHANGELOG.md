@@ -10,6 +10,9 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ### Changed
 
+- Disks under an active bcache device and all members of a mounted multi-device btrfs filesystem are treated as in
+  use (before, only the btrfs member shown with a mount point was).
+
 - Autodetected disks are passed to QEMU in name order (before: in the order the kernel listed them, which could
   change between runs). ZFS zvols (`zd*`) and `bcache*` devices are excluded from autodetection.
 
