@@ -42,12 +42,13 @@
       'firewall-cmd --reload' or a firewalld restart removes these rules (re-run the role to restore them).
   when: (lisoq_firewall_acl_enable | bool) and (__lisoq_firewalld_state.stdout | default('') == 'active')
 
+# iptables-services is not used by the role; on EL8+ it is only in EPEL. On EL9 'iptables' could also
+# resolve to iptables-legacy from EPEL, so the nft variant of the base OS is named explicitly.
 - name: '{{ ansible_os_family }} | Install iptables'
   ansible.builtin.yum:
-    name:
-      - iptables
-      - iptables-services
-#      - iptables-utils
+    name: >-
+      {{ ['iptables', 'iptables-services'] if (ansible_distribution_major_version | int < 8)
+         else (['iptables'] if (ansible_distribution_major_version | int == 8) else ['iptables-nft']) }}
   when: (lisoq_firewall_acl_enable | bool)
 
 # - name: Starting iptables services after installation

@@ -114,6 +114,15 @@
   when: (lisoq_qemu_enable | bool) and (not __lisoq_qemu_package | bool) and
         (__lisoq_static_local is falsy) and (__lisoq_static_url is falsy)
 
+# EL8+ have no qemu-system-x86 package, and their qemu-kvm supports neither the 'pc' machine nor IDE disks.
+- name: Check that package QEMU is available
+  fail:
+    msg: >-
+      lisoq_qemu_install is not supported on {{ ansible_distribution }} {{ ansible_distribution_major_version }}
+      (no qemu-system-x86 package). Use the static QEMU: lisoq_qemu_static_custom_enable: true.
+  when: (__lisoq_qemu_package | bool) and (ansible_os_family == 'RedHat') and
+        (ansible_distribution_major_version | int >= 8)
+
 # Without -vnc QEMU opens a GTK/SDL window and fails on a headless server.
 - name: Check lisoq_qemu_vnc_type
   fail:

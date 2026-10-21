@@ -21,6 +21,10 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ### Fixed
 
+- EL8/EL9: the package cache ramdisk used `/var/cache/yum` (dnf uses `/var/cache/dnf`), the firewall step installed
+  `iptables-services` (EPEL only), and `lisoq_qemu_install` failed on the missing `qemu-system-x86` package.
+  Now the right paths/packages are used and `lisoq_qemu_install` fails early with a hint to use the static QEMU.
+
 - Re-running while the VM is up no longer fails the "QEMU need more RAM" check (the free RAM is used by the running
   VM, which is not restarted).
 - `lisoq_qemu_static_custom_relative_dir` without a leading slash (e.g. `share/qemu`) or empty broke the static

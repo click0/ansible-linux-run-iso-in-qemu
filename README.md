@@ -29,6 +29,8 @@ Installed packages on target hosts:
     
 ansible-core 2.15 or newer on the control node (tested with 2.15 and 2.19).
 For EL7 targets use ansible-core 2.15 or 2.16: newer versions do not support its Python.
+On EL8 and newer only the static QEMU (`lisoq_qemu_static_custom_enable: true`) can be used: there is no
+`qemu-system-x86` package, and their `qemu-kvm` supports neither the `pc` machine nor IDE disks.
 
 Ansible collection on the control node:
   - `ansible.posix` >= 1.5.0 (`ansible-galaxy collection install ansible.posix`)
