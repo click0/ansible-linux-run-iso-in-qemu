@@ -6,13 +6,48 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y.Z` git tags
 (the tag is the version imported by Ansible Galaxy).
 
-## [1.4.0] - 2026-10-20
+## [1.5.0] - 2026-10-21
+
+### ⚠ Changed
+
+- Disks with an active md array, LVM, dm-crypt/multipath device, or in an imported ZFS pool are treated as in use
+  and not passed to QEMU (before, only mounted disks and swap were; the 1.2.1 entry already claimed LVM/md).
+  On rescue systems that auto-assemble md arrays, stop them first (`mdadm --stop --scan`) or set
+  `lisoq_qemu_disk_allow_in_use: true`.
+- The firewall ACL lives in its own chain `LISOQ_QEMU`, rebuilt on every run; INPUT only jumps to it.
+- Files of the role (ISO, QEMU archives, `uefi.bin`, uploads) are kept in `<ramdisk path>/lisoq`, a private
+  directory; the role refuses to reuse it if another user could have prepared it. Files from older versions in
+  the ramdisk path itself are downloaded once more.
+- The role's QEMU is started with `-name lisoq`.
+
+### Fixed
+
+- Servers with 4 disks (plus the ISO) or more could not start QEMU ("machine type does not support
+  if=ide,bus=2,unit=0"). Disks that do not fit on the IDE bus are attached via AHCI (SATA) controllers.
+- Removing an address from the firewall whitelists (or a new address of the Ansible host) now revokes access;
+  previously the old ACCEPT rule stayed in place.
+- The firewall protects the VNC port QEMU actually listens on (values below 5900 mean 5901); before, e.g.
+  `lisoq_qemu_args_port_vnc: '1'` left 5901 open.
+- `lisoq_qemu_enable: true` without `lisoq_qemu_install` or static QEMU now fails with a clear message instead of
+  silently starting nothing.
+- File paths with spaces (e.g. README Example #2) work in the password-based upload and in `-cdrom`.
+- Another VM on the host (e.g. from libvirt) no longer prevents the role from starting its own.
+- `lisoq_ramdisk_package_purge` unmounts only the package cache tmpfs mounted by the role.
+- With the firewall enabled, hosts without IPv6 (ip6tables not working) get IPv4 rules only instead of failing.
+- On multi-user hosts another user can no longer plant the QEMU binary or the ISO in the world-writable ramdisk
+  path for root to run.
+
+## [1.4.0] - 2026-10-21
+
+First release after 1.2.1. Versions 1.2.2 and 1.3.0 were never tagged; their changes are included here.
 
 ### ⚠ Changed
 
 - `lisoq_firewall_acl_enable` is `true` by default. The QEMU forwarded ports (VM SSH 1022, RDP, VNC) were open to
   everyone, and live ISOs such as mfsbsd have a well-known root password. Now they are reachable only from the
   whitelists. Set `lisoq_firewall_acl_enable: false` to restore the old behaviour.
+- The default ISO (`lisoq_iso_file_url`) is mfsbsd 14.2 instead of 12.2 (FreeBSD 12 is end-of-life).
+  It boots in both BIOS and UEFI mode. Set `lisoq_iso_file_url` explicitly to keep the old image.
 - On RedHat the role no longer stops `firewalld` when the ACL is enabled (that removed the filtering of all
   other ports of the server); it prints a warning that `firewall-cmd --reload` drops the ACL rules.
 
@@ -20,39 +55,21 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 - `lisoq_firewall_acl_allow_ansible_ip` (default `true`): the address the Ansible control node connects from,
   as seen by the server (`SSH_CONNECTION`), is added to the whitelist automatically.
-
-### Fixed
-
-- `lisoq_ramdisk_package_purge` no longer leaves a 1 MiB tmpfs on the package cache directory, which broke any
-  later package download, including a re-run of the role.
-
-## [1.3.0] - 2026-10-20
-
-### Changed
-
-- The default ISO (`lisoq_iso_file_url`) is mfsbsd 14.2 instead of 12.2 (FreeBSD 12 is end-of-life).
-  It boots in both BIOS and UEFI mode. Set `lisoq_iso_file_url` explicitly to keep the old image.
-
-### Added
-
 - `lisoq_qemu_uefi` (default `false`): boot QEMU with the UEFI firmware (`-bios uefi.bin`).
   Requires `lisoq_qemu_static_custom_enable: true` and an ISO with a UEFI boot loader.
 
 ### Fixed
 
-- Since 1.2.1, static QEMU was started with `-bios uefi.bin` automatically when a disk was larger than 2 TiB,
+- In 1.2.1 static QEMU was started with `-bios uefi.bin` automatically when a disk was larger than 2 TiB,
   so ISOs without a UEFI boot loader (including the previous default mfsbsd 12.2) did not boot at all
   ("Boot Failed. EFI DVD/CDROM"). UEFI is now opt-in; such disks are fully usable in BIOS mode,
   the role only prints a hint about `lisoq_qemu_uefi`.
-
-## [1.2.2] - 2026-10-20
-
-### Fixed
-
 - The ISO and the static QEMU/UEFI archives are no longer downloaded again on every run
   (the ISO is saved to an explicit file path, the archives are extracted only once).
 - `lisoq_qemu_vnc_type` is validated: values other than `local`/`share` used to start QEMU without `-vnc`,
   which fails on a headless server.
+- `lisoq_ramdisk_package_purge` no longer leaves a 1 MiB tmpfs on the package cache directory, which broke any
+  later package download, including a re-run of the role.
 
 ## [1.2.1] - 2026-10-20
 
@@ -120,9 +137,8 @@ First release after 1.0.3. Versions 1.0.4, 1.1.0 and 1.2.0 were never tagged; th
 
 ## [1.0.0] - 2022-09-20
 
-[1.4.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.3.0...1.4.0
-[1.3.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.2.2...1.3.0
-[1.2.2]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.2.1...1.2.2
+[1.5.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.4.0...1.5.0
+[1.4.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.2.1...1.4.0
 [1.2.1]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.3...1.2.1
 [1.0.3]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.2...1.0.3
 [1.0.2]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.1...1.0.2

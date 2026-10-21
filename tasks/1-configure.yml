@@ -51,8 +51,11 @@
          else '' }}
     __lisoq_qemu_cpu: '{{ lisoq_qemu_cpu if (lisoq_qemu_cpu is truthy) else (ansible_processor_vcpus | default(1)) }}'
     __lisoq_qemu_vnc_port: '{{ (lisoq_qemu_args_port_vnc | int < 5900) | ternary(5901, lisoq_qemu_args_port_vnc | int) }}'
-    # https://stackoverflow.com/a/60526774/12646191
-    __lisoq_acl_ports: "{{ lisoq_firewall_acl_ports | default([]) | select() | reject('match', '^$') | list }}"
+    # Firewall ports = the ports QEMU actually listens on: SSH/RDP forwarding if set, and the VNC port
+    # after the same correction as below (values under 5900 mean 5901).
+    __lisoq_acl_ports: >-
+      {{ ([lisoq_qemu_args_port_ssh, lisoq_qemu_args_port_rdp] | select('truthy') | map('string') | list)
+         + [(lisoq_qemu_args_port_vnc | int < 5900) | ternary(5901, lisoq_qemu_args_port_vnc | int) | string] }}
     __lisoq_ramdisk_dir: "{{ lisoq_ramdisk_path if (lisoq_ramdisk_path is truthy) else lisoq_ramdisk_another_path }}"
     __lisoq_total_need_ram: >-
       {{ lisoq_total_need_ram if (lisoq_total_need_ram is truthy)
@@ -92,6 +95,15 @@
       the QEMU ports.
   when: (lisoq_firewall_acl_enable | bool) and (lisoq_firewall_acl_allow_ansible_ip | bool) and
         (__lisoq_ansible_ip | length == 0)
+
+# Otherwise the start tasks are all skipped and the play "succeeds" without a VM.
+- name: Check that a QEMU source is selected
+  fail:
+    msg: >-
+      lisoq_qemu_enable is true, but no QEMU is selected: set lisoq_qemu_install: true (QEMU from the package
+      repository) or lisoq_qemu_static_custom_enable: true (static QEMU from lisoq_qemu_static_custom_url/_local).
+  when: (lisoq_qemu_enable | bool) and (not __lisoq_qemu_package | bool) and
+        (__lisoq_static_local is falsy) and (__lisoq_static_url is falsy)
 
 # Without -vnc QEMU opens a GTK/SDL window and fails on a headless server.
 - name: Check lisoq_qemu_vnc_type
@@ -185,11 +197,19 @@
         state: ephemeral
   when: (lisoq_ramdisk_enable | bool)
 
+# Files of the role (ISO, QEMU archives, uefi.bin) are kept in a private subdirectory: the ramdisk path
+# is world-writable (tmpfs root, /tmp fallback) and existing files are reused on re-runs, so another
+# local user could otherwise plant a binary or an ISO there. See upload_files.yml.
+- name: Set the work directory of the role
+  set_fact:
+    __lisoq_work_dir: '{{ __lisoq_ramdisk_dir }}/lisoq'
+
 # QEMU command line: lisoq_qemu_args from the user plus the options added by the role.
 
+# '-name lisoq' marks the VM started by this role (see start_qemu.yml).
 - name: Start the QEMU command line with lisoq_qemu_args.
   set_fact:
-    __lisoq_qemu_cmd: '{{ lisoq_qemu_args }}'
+    __lisoq_qemu_cmd: '-name lisoq {{ lisoq_qemu_args }}'
 
 - name: Add net user options to qemu_args. Only port {{ lisoq_qemu_args_port_ssh }}
   set_fact:
@@ -225,17 +245,17 @@
 
 - name: Add the local ISO option to qemu_args.
   set_fact:
-    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ __lisoq_ramdisk_dir }}/{{ __lisoq_iso_local | basename }}'
+    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ (__lisoq_work_dir ~ "/" ~ (__lisoq_iso_local | basename)) | quote }}'
   when: (__lisoq_iso_local is truthy)
 
 - name: Add the remote ISO option to qemu_args.
   set_fact:
-    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ __lisoq_iso_remote }}'
+    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ __lisoq_iso_remote | quote }}'
   when: (__lisoq_iso_remote is truthy)
 
 - name: Add an ISO URL option to qemu_args. We will download this ISO later.
   set_fact:
-    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ __lisoq_ramdisk_dir }}/{{ __lisoq_iso_url | basename }}'
+    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ (__lisoq_work_dir ~ "/" ~ (__lisoq_iso_url | basename)) | quote }}'
   when: (__lisoq_iso_url is truthy)
 
 - name: Add the count of CPU to qemu_args.
@@ -255,31 +275,59 @@
                | reject('match', '^(' ~ (lisoq_qemu_exclude_disk_regular_list | join('|')) ~ ')[0-9]+')
                | difference(lisoq_qemu_exclude_disk) | list) }}
 
-# A disk is in use by the host if it, its partitions or LVM/md volumes on it are mounted or used as swap.
-# Writing to such a disk from QEMU at the same time corrupts it.
-- name: Find mount points on the selected disks
+# A disk is in use by the host if it or anything on it is mounted or used as swap, if an active
+# md array, LVM volume, dm-crypt/multipath device sits on it (they write to the disk even when not
+# mounted, e.g. an md resync), or if it belongs to an imported ZFS pool (lsblk shows no mountpoint
+# for ZFS). Writing to such a disk from QEMU at the same time corrupts it.
+- name: Find mount points and active devices on the selected disks
   command:
     argv:
       - lsblk
-      - -nro
-      - MOUNTPOINT
+      - -nr
+      - -o
+      - NAME,TYPE,MOUNTPOINT
       - '/dev/{{ item }}'
   loop: '{{ __lisoq_qemu_disks }}'
   register: __lisoq_qemu_disk_mounts
   changed_when: false
   check_mode: false
 
+- name: List devices of imported ZFS pools
+  command:
+    argv:
+      - zpool
+      - status
+      - -L
+      - -P
+  register: __lisoq_zpool_status
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: (__lisoq_qemu_disks | length > 0)
+
 - name: Set the list of disks in use by the host
   set_fact:
     __lisoq_qemu_disk_in_use: >-
-      {{ __lisoq_qemu_disk_mounts.results | default([])
-         | selectattr('stdout', 'search', '\S') | map(attribute='item') | list }}
+      {{ (__lisoq_qemu_disk_mounts.results | default([])
+         | selectattr('stdout', 'search', '(?m)^\S+ \S+ \S')
+         | map(attribute='item') | list
+         + __lisoq_qemu_disk_mounts.results | default([])
+         | selectattr('stdout', 'search', '(?m)^\S+ (?!(disk|part|loop|rom)( |$))\S+')
+         | map(attribute='item') | list
+         + __lisoq_qemu_disk_mounts.results | default([])
+         | selectattr('stdout', 'search', '(?m)^(' ~ ((__lisoq_zpool_status.stdout | default(''))
+                      | regex_findall('/dev/([A-Za-z0-9._-]+)') | map('regex_escape') | join('|')
+                      | default('(?!)', true)) ~ ') ')
+         | map(attribute='item') | list)
+         | unique }}
 
 - name: Fail if an explicitly listed disk is in use by the host
   fail:
     msg: >-
-      Disks {{ __lisoq_qemu_disk_in_use | join(', ') }} from lisoq_qemu_disk are mounted or used as swap on the host.
-      Remove them from lisoq_qemu_disk or set lisoq_qemu_disk_allow_in_use to true.
+      Disks {{ __lisoq_qemu_disk_in_use | join(', ') }} from lisoq_qemu_disk are in use by the host (mounted, swap,
+      an active md array / LVM / dm device, or an imported ZFS pool). Unmount/stop them first
+      (e.g. umount, swapoff, mdadm --stop --scan, vgchange -an, zpool export), remove them from
+      lisoq_qemu_disk, or set lisoq_qemu_disk_allow_in_use to true.
   when: (not __lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_in_use | length > 0) and
         (not lisoq_qemu_disk_allow_in_use | bool)
 
@@ -291,7 +339,10 @@
 
 - name: Report disks excluded from QEMU
   debug:
-    msg: 'Disks in use by the host are not passed to QEMU: {{ __lisoq_qemu_disk_in_use | join(", ") }}'
+    msg: >-
+      Disks in use by the host (mounted, swap, active md/LVM/dm, imported ZFS) are not passed to QEMU:
+      {{ __lisoq_qemu_disk_in_use | join(", ") }}. To pass them, stop what uses them first
+      (e.g. mdadm --stop --scan, vgchange -an, zpool export) and re-run the role.
   when: (__lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_in_use | length > 0) and
         (not lisoq_qemu_disk_allow_in_use | bool)
 
@@ -307,7 +358,7 @@
     (ansible_devices[item].sectors|int * ansible_devices[item].sectorsize|int) > (2 * 1024 * 1024 * 1024 * 1024)
 
 # UEFI is opt-in: SeaBIOS sees disks larger than 2 TiB as well (the 2 TiB limit is MBR's), and many ISOs
-# (e.g. mfsbsd 12.2, the default before 1.3.0) have no UEFI boot loader, so forcing UEFI made them unbootable.
+# (e.g. mfsbsd 12.2, the default before 1.4.0) have no UEFI boot loader, so forcing UEFI made them unbootable.
 - name: Decide whether the UEFI firmware is used.
   set_fact:
     __lisoq_qemu_uefi: '{{ lisoq_qemu_uefi | bool }}'
@@ -330,15 +381,35 @@
 # uefi.bin is extracted from lisoq_qemu_static_custom_uefi_url in upload_files.yml (same condition).
 - name: Add UEFI firmware to qemu_args.
   set_fact:
-    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -bios {{ __lisoq_ramdisk_dir }}/uefi.bin'
+    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -bios {{ __lisoq_work_dir }}/uefi.bin'
   when: (__lisoq_qemu_uefi | bool)
+
+# Disks go to the IDE bus as before while they fit: the 'pc' machine has 4 IDE slots and -cdrom takes one.
+# More disks ("machine type does not support if=ide,bus=2,unit=0" otherwise) are all attached to
+# AHCI (SATA) controllers, 6 ports each; AHCI drivers are built into Windows, Linux and FreeBSD,
+# and SeaBIOS boots from it.
+- name: Count free IDE slots.
+  set_fact:
+    __lisoq_qemu_ide_free: >-
+      {{ 4 - (((__lisoq_iso_local is truthy) or (__lisoq_iso_remote is truthy) or (__lisoq_iso_url is truthy))
+              | ternary(1, 0)) }}
 
 - name: Add a list of disk device options to qemu_args.
   set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }}
  -drive ''file=/dev/{{ __lisoq_qemu_disks | join(",format=raw'' -drive ''file=/dev/") }},format=raw''
 '
-  when: (__lisoq_qemu_disks | length > 0)
+  when: (__lisoq_qemu_disks | length > 0) and (__lisoq_qemu_disks | length <= __lisoq_qemu_ide_free | int)
+
+- name: Add disks to qemu_args on AHCI (SATA) controllers.
+  set_fact:
+    __lisoq_qemu_cmd: >-
+      {{ __lisoq_qemu_cmd }}
+      {%- for c in range(((__lisoq_qemu_disks | length) + 5) // 6) %} -device ahci,id=lisoq_ahci{{ c }}{% endfor %}
+      {%- for d in __lisoq_qemu_disks %} -drive file=/dev/{{ d }},format=raw,if=none,id=lisoq_disk{{ loop.index0 }}
+      -device ide-hd,drive=lisoq_disk{{ loop.index0 }},bus=lisoq_ahci{{ loop.index0 // 6 }}.{{ loop.index0 % 6 }}
+      {%- endfor %}
+  when: (__lisoq_qemu_disks | length > __lisoq_qemu_ide_free | int)
 
 - name: Add start VNC to qemu_args.
   set_fact:
