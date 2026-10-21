@@ -3,23 +3,18 @@
 - name: If lisoq_ramdisk_package_enable enabled
   block:
 
-    # ansible_mounts skips tmpfs, so a ramdisk left by a previous run is only visible to findmnt.
+    # ansible_mounts skips tmpfs, so a ramdisk left by a previous run is only visible to findmnt
+    # (no --mountpoint: util-linux 2.23 on EL7 does not have it).
     - name: 'Check mounted path {{ __var_cache_package_path }}'
-      command:
-        argv:
-          - findmnt
-          - -n
-          - --mountpoint
-          - '{{ __var_cache_package_path }}'
+      command: findmnt -n -r -o TARGET
       register: __lisoq_package_findmnt
       changed_when: false
-      failed_when: __lisoq_package_findmnt.rc > 1
       check_mode: false
 
     - name: 'Remember that {{ __var_cache_package_path }} is already mounted'
       set_fact:
         __lisoq_ramdisk_package_mounted: true
-      when: __lisoq_package_findmnt.rc == 0
+      when: __var_cache_package_path in __lisoq_package_findmnt.stdout_lines
 
     - name: 'Calculate the *raw* size of the directory {{ __var_cache_package_path }}'
       command: du -sk {{ __var_cache_package_path }}

@@ -21,6 +21,11 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ### Fixed
 
+- EL7 (util-linux 2.23): `findmnt` has no `--mountpoint` and `-b`, and its error was read as "not mounted".
+  A re-run with `lisoq_ramdisk_package_enable` failed ("Device or resource busy"), `lisoq_ramdisk_package_purge`
+  did nothing, a disk mounted on `lisoq_ramdisk_path` itself was not detected, and an existing tmpfs was not grown.
+  The role now reads the whole mount table and takes tmpfs sizes from `stat -f`.
+
 - Changing the port settings while the QEMU of the role is running (it is not restarted) no longer opens the
   ports it still listens on: they stay in the firewall ACL until it is stopped.
 - The firewall ACL is updated without a window in which the ports are open (new rules are added before the old
