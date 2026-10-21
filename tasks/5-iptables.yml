@@ -1,79 +1,147 @@
 ---
 
-# The ACL lives in its own chain LISOQ_QEMU, which is flushed and rebuilt on every run, so an address
-# removed from the whitelists (or an old address of the Ansible host) loses access. INPUT only jumps
-# to it, from the top, so existing ACCEPT rules cannot bypass it. Rules that 1.1.0-1.4.0 inserted
-# directly into INPUT end up below the jump and no longer decide anything for the current ports.
-# DROP is added right after the flush and the whitelist is inserted above it, so the ports are not
-# left open while the chain is rebuilt.
+# The ACL lives in its own chain LISOQ_QEMU; INPUT only jumps to it, from the top, so existing ACCEPT
+# rules cannot bypass it. Rules that 1.1.0-1.4.0 inserted directly into INPUT end up below the jump and
+# no longer decide anything for the current ports.
+# Every rule carries the comment 'lisoq:<hash of the ACL>'. New rules are added first and outdated ones
+# are removed afterwards, so the ports are never open while the ACL changes, and an address removed from
+# the whitelists (or an old address of the Ansible host) loses access. An unchanged ACL changes nothing.
 
-# Without IPv6 in the kernel (e.g. ipv6.disable=1) ip6tables does not work; then only IPv4 rules are set.
+# Without IPv6 in the kernel (ipv6.disable=1) ip6tables does not work; then only IPv4 rules are set.
 - name: Check whether ip6tables works
-  command: ip6tables -S INPUT
+  command: ip6tables -w -S INPUT
   register: __lisoq_ip6tables_check
   changed_when: false
   failed_when: false
   check_mode: false
 
+- name: Check whether the kernel has IPv6
+  stat:
+    path: /proc/net/if_inet6
+  register: __lisoq_ipv6_kernel
+
+- name: Fail if IPv6 is enabled but ip6tables does not work
+  fail:
+    msg: >-
+      IPv6 is enabled on this host, but 'ip6tables -S INPUT' failed: {{ __lisoq_ip6tables_check.stderr
+      | default(__lisoq_ip6tables_check.msg | default('')) }}. The QEMU ports would stay open over IPv6.
+      Fix ip6tables or set lisoq_firewall_acl_enable: false.
+  when: (__lisoq_ip6tables_check.rc != 0) and (__lisoq_ipv6_kernel.stat.exists)
+
 - name: Select IP versions for the firewall rules
   set_fact:
     __lisoq_ip_versions: "{{ ['ipv4'] + ((__lisoq_ip6tables_check.rc == 0) | ternary(['ipv6'], [])) }}"
 
-- name: ip6tables does not work
+- name: IPv6 is disabled
   debug:
-    msg: 'ip6tables does not work on this host (IPv6 disabled?): only IPv4 firewall rules are set.'
+    msg: 'IPv6 is disabled on this host: only IPv4 firewall rules are set.'
   when: (__lisoq_ip6tables_check.rc != 0)
 
-- name: 'Create the LISOQ_QEMU chain'
-  ansible.builtin.iptables:
-    chain: LISOQ_QEMU
-    chain_management: true
-    ip_version: '{{ item }}'
-  loop: '{{ __lisoq_ip_versions }}'
+# A QEMU of the role that is still running keeps the ports it was started with (a new instance is not
+# started on re-run), so they stay protected even if the port settings have changed.
+- name: Find a running QEMU of the role
+  command:
+    argv:
+      - pgrep
+      - -a
+      - -f
+      - '{{ __lisoq_qemu_pgrep_pattern }}'
+  register: __lisoq_acl_qemu_running
+  changed_when: false
+  failed_when: false
+  check_mode: false
 
-- name: 'Flush the LISOQ_QEMU chain'
-  ansible.builtin.iptables:
-    chain: LISOQ_QEMU
-    flush: true
-    ip_version: '{{ item }}'
-  loop: '{{ __lisoq_ip_versions }}'
+- name: Calculate the VNC ports of the running QEMU
+  set_fact:
+    __lisoq_acl_vnc_running: >-
+      {% for d in __lisoq_acl_qemu_running.stdout | regex_findall('-vnc [^ ]*:([0-9]+)') %}{{ 5900 + (d | int) }} {% endfor %}
 
-- name: 'Disable connections on tcp ports: {{ __lisoq_acl_ports }}'
+- name: Calculate the firewall rules
+  set_fact:
+    __lisoq_acl_ports_all: >-
+      {{ (__lisoq_acl_ports
+          + (__lisoq_acl_qemu_running.stdout | regex_findall('hostfwd=tcp:[^:]*:([0-9]+)-'))
+          + (__lisoq_acl_vnc_running | default('', true)).split())
+         | map('int') | unique | sort | map('string') | list }}
+    __lisoq_acl_cmds: "{{ ['iptables'] + (('ipv6' in __lisoq_ip_versions) | ternary(['ip6tables'], [])) }}"
+
+- name: Calculate the firewall rule tag
+  set_fact:
+    __lisoq_acl_tag: >-
+      lisoq:{{ ((__lisoq_acl_ports_all + __lisoq_acl_ipv4_white + __lisoq_acl_ipv6_white)
+                | join(' ') | hash('sha1'))[:12] }}
+
+- name: Ports of the still running QEMU are protected too
+  debug:
+    msg: >-
+      QEMU of the role is running (PID {{ __lisoq_acl_qemu_running.stdout_lines | map('split') | map('first')
+      | join(', ') }}); the firewall protects ports {{ __lisoq_acl_ports_all | join(', ') }}.
+  when: (__lisoq_acl_ports_all | difference(__lisoq_acl_ports)) is truthy
+
+- name: Check whether the LISOQ_QEMU chain exists
+  command: '{{ item }} -w -S LISOQ_QEMU'
+  loop: '{{ __lisoq_acl_cmds }}'
+  register: __lisoq_acl_chain
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Create the LISOQ_QEMU chain
+  command: '{{ item.item }} -w -N LISOQ_QEMU'
+  loop: '{{ __lisoq_acl_chain.results }}'
+  loop_control:
+    label: '{{ item.item }}'
+  when: item.rc != 0
+  changed_when: true
+
+- name: 'Disable connections on tcp ports: {{ __lisoq_acl_ports_all }}'
   ansible.builtin.iptables:
     chain: LISOQ_QEMU
     jump: DROP
     protocol: tcp
     ip_version: '{{ item }}'
     destination_ports:
-      - '{{ __lisoq_acl_ports | join(",") }}'
+      - '{{ __lisoq_acl_ports_all | join(",") }}'
+    comment: '{{ __lisoq_acl_tag }}'
   loop: '{{ __lisoq_ip_versions }}'
 
 # IPv4
-- name: 'Whitelist IPv4 for tcp ports: {{ __lisoq_acl_ports }}'
+- name: 'Whitelist IPv4 for tcp ports: {{ __lisoq_acl_ports_all }}'
   ansible.builtin.iptables:
     chain: LISOQ_QEMU
     action: insert
     protocol: tcp
     source: '{{ item }}'
     destination_ports:
-      - '{{ __lisoq_acl_ports | join(",") }}'
+      - '{{ __lisoq_acl_ports_all | join(",") }}'
     ip_version: ipv4
     jump: ACCEPT
+    comment: '{{ __lisoq_acl_tag }}'
   with_items: '{{ __lisoq_acl_ipv4_white }}'
 
 # IPv6
-- name: 'Whitelist IPv6 for tcp ports: {{ __lisoq_acl_ports }}'
+- name: 'Whitelist IPv6 for tcp ports: {{ __lisoq_acl_ports_all }}'
   ansible.builtin.iptables:
     chain: LISOQ_QEMU
     action: insert
     protocol: tcp
     source: '{{ item }}'
     destination_ports:
-      - '{{ __lisoq_acl_ports | join(",") }}'
+      - '{{ __lisoq_acl_ports_all | join(",") }}'
     ip_version: ipv6
     jump: ACCEPT
+    comment: '{{ __lisoq_acl_tag }}'
   with_items: '{{ __lisoq_acl_ipv6_white }}'
   when: ('ipv6' in __lisoq_ip_versions)
+
+# Rule numbers from the bottom up, so the numbers of the remaining rules do not change.
+- name: Remove outdated rules from the LISOQ_QEMU chain
+  shell: >-
+    {{ item }} -w -S LISOQ_QEMU | sed 1d | grep -n -v -F -- '{{ __lisoq_acl_tag }}' | cut -d: -f1 | sort -rn |
+    while read -r n; do {{ item }} -w -D LISOQ_QEMU "$n" || exit 1; echo "deleted rule $n"; done
+  loop: '{{ __lisoq_acl_cmds }}'
+  register: __lisoq_acl_cleanup
+  changed_when: __lisoq_acl_cleanup.stdout is truthy
 
 - name: 'Jump from INPUT to the LISOQ_QEMU chain'
   ansible.builtin.iptables:

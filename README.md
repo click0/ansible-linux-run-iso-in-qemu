@@ -185,6 +185,10 @@ only from the whitelisted IPs/networks; connections from other addresses to thes
 Whitelists are separate for IPv4 and IPv6. The rules apply only to these ports, not to the server's own SSH.
 Enabled by default since 1.4.0: without it anyone could reach the VM's SSH, and live ISOs such as mfsbsd
 have a well-known root password.
+The rules live in the `LISOQ_QEMU` chain (INPUT jumps to it). While a QEMU started by the role is still running,
+its ports stay protected too, even if the port settings have changed. If IPv6 is enabled but `ip6tables` does not
+work, the role fails instead of leaving the ports open over IPv6.
+Setting it to `false` removes the `LISOQ_QEMU` chain left by an earlier run.
 
     lisoq_firewall_acl_allow_ansible_ip: true
 Also allow the address the Ansible control node connects from, as seen by the server

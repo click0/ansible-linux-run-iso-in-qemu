@@ -51,6 +51,11 @@
          else '' }}
     __lisoq_qemu_cpu: '{{ lisoq_qemu_cpu if (lisoq_qemu_cpu is truthy) else (ansible_processor_vcpus | default(1)) }}'
     __lisoq_qemu_vnc_port: '{{ (lisoq_qemu_args_port_vnc | int < 5900) | ternary(5901, lisoq_qemu_args_port_vnc | int) }}'
+    # The QEMU of this role: '-name lisoq'; older role versions are recognised by the SSH port forwarding.
+    # Other VMs on the host (e.g. from libvirt) do not count.
+    __lisoq_qemu_pgrep_pattern: >-
+      ^([^ ]*/)?qemu-system-x86_64 .*(-name lisoq( |$)
+      {%- if lisoq_qemu_args_port_ssh is truthy %}|hostfwd=tcp::{{ lisoq_qemu_args_port_ssh }}-{% endif %})
     # Firewall ports = the ports QEMU actually listens on: SSH/RDP forwarding if set, and the VNC port
     # after the same correction as below (values under 5900 mean 5901).
     __lisoq_acl_ports: >-

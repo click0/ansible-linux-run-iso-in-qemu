@@ -1,0 +1,30 @@
+---
+
+# lisoq_firewall_acl_enable: false removes the ACL that an earlier run has set.
+- name: Check whether the LISOQ_QEMU chain exists
+  command: '{{ item }} -w -S LISOQ_QEMU'
+  loop: ['iptables', 'ip6tables']
+  register: __lisoq_acl_chain
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Remove the jump from INPUT to the LISOQ_QEMU chain
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: tcp
+    jump: LISOQ_QEMU
+    ip_version: "{{ (item.item == 'iptables') | ternary('ipv4', 'ipv6') }}"
+    state: absent
+  loop: '{{ __lisoq_acl_chain.results }}'
+  loop_control:
+    label: '{{ item.item }}'
+  when: item.rc == 0
+
+- name: Remove the LISOQ_QEMU chain
+  shell: '{{ item.item }} -w -F LISOQ_QEMU && {{ item.item }} -w -X LISOQ_QEMU'
+  loop: '{{ __lisoq_acl_chain.results }}'
+  loop_control:
+    label: '{{ item.item }}'
+  when: item.rc == 0
+  changed_when: true

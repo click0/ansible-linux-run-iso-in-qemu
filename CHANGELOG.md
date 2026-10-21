@@ -8,7 +8,19 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ## [Unreleased]
 
+### Changed
+
+- If IPv6 is enabled but `ip6tables` does not work, the firewall step fails instead of setting IPv4 rules only
+  (QEMU's VNC with `lisoq_qemu_vnc_type: share` also listens on IPv6).
+
 ### Fixed
+
+- Changing the port settings while the QEMU of the role is running (it is not restarted) no longer opens the
+  ports it still listens on: they stay in the firewall ACL until it is stopped.
+- The firewall ACL is updated without a window in which the ports are open (new rules are added before the old
+  ones are removed), and an unchanged ACL no longer reports changes on every run.
+- `lisoq_firewall_acl_enable: false` removes the `LISOQ_QEMU` chain left by an earlier run; before, the old
+  whitelist was enforced until reboot.
 
 - The ramdisk is no longer mounted on top of `lisoq_ramdisk_path` when a filesystem is mounted below it
   (e.g. a server disk on `/mnt/data`): that hid the disk's files. `lisoq_ramdisk_another_path` is used instead.

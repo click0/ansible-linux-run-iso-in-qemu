@@ -1,16 +1,12 @@
 ---
 
 # A second QEMU cannot open the same disks and ports, so do not start it on re-run.
-# Only the VM of this role counts ('-name lisoq'; older role versions are recognised by the SSH port
-# forwarding), not other VMs on the host, e.g. from libvirt.
 - name: Check whether QEMU is already running
   command:
     argv:
       - pgrep
       - -f
-      - >-
-        ^([^ ]*/)?qemu-system-x86_64 .*(-name lisoq( |$)
-        {%- if lisoq_qemu_args_port_ssh is truthy %}|hostfwd=tcp::{{ lisoq_qemu_args_port_ssh }}-{% endif %})
+      - '{{ __lisoq_qemu_pgrep_pattern }}'
   register: __lisoq_qemu_running
   changed_when: false
   failed_when: false
