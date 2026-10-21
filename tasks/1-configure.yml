@@ -68,10 +68,13 @@
 
 # Firewall whitelist: user networks plus the address the Ansible control node connects from, as seen by
 # the server. SSH_CONNECTION is 'client_ip client_port server_ip server_port'; it is read without become,
-# because sudo removes it from the environment.
+# because sudo removes it from the environment. ansible_become (not only the keyword) is overridden, since an
+# inventory ansible_become: true takes precedence over 'become: false'.
 - name: Find the address of the Ansible control node as seen by the server
   command: printenv SSH_CONNECTION
   become: false
+  vars:
+    ansible_become: false
   register: __lisoq_ssh_connection
   changed_when: false
   failed_when: false

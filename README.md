@@ -36,7 +36,10 @@ Ansible collection on the control node:
 Installed packages on the control node (Ansible):
   - rsync
   - sshpass  
-If you use password login to target hosts via `ssh`
+If you use password login to target hosts via `ssh`.
+The local files (`lisoq_iso_file_local`, `lisoq_qemu_static_custom_local`) are then uploaded with `rsync` + `sshpass`
+as the user Ansible logs in as. The password must be set in a variable (`ansible_password` or `ansible_ssh_pass`):
+a password typed with `--ask-pass` is not visible to the role.
 
 ## Variables
 
@@ -163,7 +166,7 @@ Use (and create) RAM-disk partitions on the target system (before running QEMU).
 
     lisoq_ramdisk_path: '/mnt'
 The preferred path for the RAM-disk partition. The role keeps its files (ISO, QEMU archives) in the `lisoq` subdirectory of the chosen path
-(mode 0700, owned by the user the role runs as, or by `ansible_user` when files are uploaded with a password).
+(mode 0700, owned by the user the role runs as, or by the SSH login user when files are uploaded with a password).
 
     lisoq_ramdisk_another_path: '/tmp'
 The alternative path for the RAM-disk partition, used when `lisoq_ramdisk_path` is already mounted with another filesystem

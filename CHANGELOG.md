@@ -21,6 +21,12 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ### Fixed
 
+- With `ansible_become: true` in the inventory the address of the Ansible host was not whitelisted: the inventory
+  variable overrode the task's `become: false`, and sudo removed `SSH_CONNECTION`.
+- Password-based uploads ran `rsync` via sudo on the control node when the play used become (failed without
+  passwordless local sudo), logged in as `root` when the user came from `remote_user`/`-u` instead of
+  `ansible_user`, and broke on an IPv6 `ansible_host`.
+
 - EL7 (util-linux 2.23): `findmnt` has no `--mountpoint` and `-b`, and its error was read as "not mounted".
   A re-run with `lisoq_ramdisk_package_enable` failed ("Device or resource busy"), `lisoq_ramdisk_package_purge`
   did nothing, a disk mounted on `lisoq_ramdisk_path` itself was not detected, and an existing tmpfs was not grown.
