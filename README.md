@@ -217,6 +217,8 @@ After installing packages, unmount the package cache ramdisk to free its RAM. Th
 Allow the QEMU forwarded ports (`lisoq_qemu_args_port_ssh`, `lisoq_qemu_args_port_rdp`, `lisoq_qemu_args_port_vnc`)
 only from the whitelisted IPs/networks; connections from other addresses to these ports are dropped (iptables).
 Whitelists are separate for IPv4 and IPv6. The rules apply only to these ports, not to the server's own SSH.
+Connections from the server itself (loopback, e.g. an SSH tunnel to the VNC port with `lisoq_qemu_vnc_type: local`)
+are always allowed, also when the whitelists do not contain `127.0.0.0/8`.
 Enabled by default since 1.4.0: without it anyone could reach the VM's SSH, and live ISOs such as mfsbsd
 have a well-known root password.
 The rules live in the `LISOQ_QEMU` chain (INPUT jumps to it). While a QEMU started by the role is still running,

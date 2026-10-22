@@ -106,6 +106,22 @@
     comment: '{{ __lisoq_acl_tag }}'
   loop: '{{ __lisoq_ip_versions }}'
 
+# Connections from the host itself (an SSH tunnel to the VNC port, which listens on 127.0.0.1 only with
+# lisoq_qemu_vnc_type: local, or to the forwarded SSH port) are always allowed: the ACL is for the network,
+# and whitelists without 127.0.0.0/8 cut the operator off.
+- name: 'Allow loopback connections to tcp ports: {{ __lisoq_acl_ports_all }}'
+  ansible.builtin.iptables:
+    chain: LISOQ_QEMU
+    action: insert
+    protocol: tcp
+    in_interface: lo
+    destination_ports:
+      - '{{ __lisoq_acl_ports_all | join(",") }}'
+    ip_version: '{{ item }}'
+    jump: ACCEPT
+    comment: '{{ __lisoq_acl_tag }}'
+  loop: '{{ __lisoq_ip_versions }}'
+
 # IPv4
 - name: 'Whitelist IPv4 for tcp ports: {{ __lisoq_acl_ports_all }}'
   ansible.builtin.iptables:
