@@ -113,15 +113,17 @@ List of block disk devices to connect to QEMU. By default, the role passes all b
       - 'sdb'
 <br>
 
-    lisoq_qemu_disk_allow_in_use: false
-Disks that are in use by the host are not passed to QEMU, because writing to them from QEMU at the same time corrupts them:
-the disk or anything on it is mounted or used as swap, an active md array, LVM volume, dm-crypt/multipath or bcache device
-sits on it (they write to the disk even when not mounted, e.g. an md resync), or it belongs to an imported ZFS pool or to a
-mounted btrfs filesystem (also the members of a multi-device btrfs that lsblk shows without a mount point).
-Autodetected disks in use are skipped with a message; if such a disk is listed explicitly in `lisoq_qemu_disk`, the role fails.
-Set to `true` to pass them anyway (at your own risk).
-Rescue systems often assemble md arrays (and activate LVM) automatically: stop them first (`mdadm --stop --scan`,
-`vgchange -an`, `zpool export`), otherwise these disks are skipped.
+    lisoq_qemu_disk_allow_in_use: true
+By default all selected disks are passed to QEMU, also those in use by the host: the disk or anything on it is mounted
+or used as swap, an active md array, LVM volume, dm-crypt/multipath or bcache device sits on it, or it belongs to an
+imported ZFS pool or to a mounted btrfs filesystem (also the members of a multi-device btrfs that lsblk shows without a
+mount point). The role does not unmount or stop anything on the host; it only prints a warning with these disks.
+Writing to such a disk from the host and from QEMU at the same time corrupts it (an active md array writes even when
+not mounted, e.g. during a resync), so stop what uses them on the host first. Rescue systems often assemble md arrays
+(and activate LVM) automatically: `mdadm --stop --scan`, `vgchange -an`, `zpool export`.
+On an installed (not rescue) system the host's own system disk is passed to QEMU as well.
+Set to `false` for the safe mode: autodetected disks in use are skipped with a message, and if such a disk is listed
+explicitly in `lisoq_qemu_disk`, the role fails.
 <br>
 
     lisoq_qemu_exclude_disk:
