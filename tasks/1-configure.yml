@@ -299,9 +299,12 @@
 
 # '-name lisoq' marks the VM started by this role (see start_qemu.yml). It comes after lisoq_qemu_args:
 # QEMU uses the last -name, so a -name in lisoq_qemu_args cannot hide the VM from the role.
+# Without -daemonize QEMU stays in the foreground and the start task never returns, so it is added when
+# lisoq_qemu_args (e.g. overridden by the user) does not have it.
 - name: Start the QEMU command line with lisoq_qemu_args.
   set_fact:
-    __lisoq_qemu_cmd: '{{ lisoq_qemu_args }} -name lisoq'
+    __lisoq_qemu_cmd: >-
+      {{ lisoq_qemu_args }}{{ '' if (lisoq_qemu_args is search('(^|\s)-daemonize(\s|$)')) else ' -daemonize' }} -name lisoq
 
 - name: Add net user options to qemu_args. Only port {{ lisoq_qemu_args_port_ssh }}
   set_fact:
