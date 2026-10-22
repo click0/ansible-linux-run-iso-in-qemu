@@ -14,6 +14,12 @@ lisoq_qemu_static_custom_url: 'https://support.org.ua/Soft/vKVM/orig/vkvm.tar.gz
 lisoq_qemu_static_custom_local: '' # local file (archive tar.gz) in Ansible host
 lisoq_qemu_static_custom_relative_dir: '/share/qemu/'
 lisoq_qemu_static_custom_uefi_url: 'https://support.org.ua/Soft/vKVM/orig/uefi.tar.gz' # from url archive
+# Checksum verification of the ISO and the static QEMU/UEFI archives (off by default).
+# '<algorithm>:<hex digest>'; for downloads also '<algorithm>:<URL of a checksum file>'.
+# The defaults are the checksums of the default files (from the default URLs, not the mirrors).
+lisoq_checksum_enable: false
+lisoq_qemu_static_custom_checksum: 'sha256:a8a7c9236d6d51f806203a719b95b071973c0a9630ad00a0157a4efd78b29f89'
+lisoq_qemu_static_custom_uefi_checksum: 'sha256:ab9c3db54d41f566a968285b8c6bc646bc8ff0183e0863f289bd8befbd93d05a'
 lisoq_qemu_uefi: false # boot QEMU with UEFI firmware (static QEMU only); the ISO must support UEFI boot
 lisoq_qemu_args_port_ssh: '1022'  # ssh port forwarding
 lisoq_qemu_args_port_rdp: '3389'  # RDP port forwarding
@@ -46,6 +52,7 @@ lisoq_qemu_boot_once_cd: true
 lisoq_iso_file_local: '' # local file in Ansible host
 lisoq_iso_file_remote: '' # file in target host
 lisoq_iso_file_url: 'https://mfsbsd.vx.sk/files/iso/14/amd64/mfsbsd-14.2-RELEASE-amd64.iso'
+lisoq_iso_file_checksum: 'sha256:2803be01ef284cb4d58c9177475c7a20ac72292e4943bc91eb159c592bfc3b5c'
 lisoq_iso_file_ssh_port: '22' # sshd port that accepts connections _inside_ ISO.
 
 lisoq_ramdisk_enable: false

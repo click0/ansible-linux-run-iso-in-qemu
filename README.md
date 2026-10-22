@@ -164,6 +164,21 @@ URL location with ISO image file.
     lisoq_iso_file_ssh_port: '22' 
 Sshd port that accepts connections _inside_ ISO image.
 
+    lisoq_checksum_enable: false
+    lisoq_iso_file_checksum: 'sha256:2803be01ef284cb4d58c9177475c7a20ac72292e4943bc91eb159c592bfc3b5c'
+    lisoq_qemu_static_custom_checksum: 'sha256:a8a7c9236d6d51f806203a719b95b071973c0a9630ad00a0157a4efd78b29f89'
+    lisoq_qemu_static_custom_uefi_checksum: 'sha256:ab9c3db54d41f566a968285b8c6bc646bc8ff0183e0863f289bd8befbd93d05a'
+Verify the checksums of the ISO (`lisoq_iso_file_url`, `_local` or `_remote`), the static QEMU archive
+(`lisoq_qemu_static_custom_url` or `_local`) and the UEFI archive. Off by default; with `lisoq_checksum_enable: true`
+the role fails on a mismatch, and also when a checksum for a file it uses is empty.
+The format is `<algorithm>:<hex digest>` (`md5`, `sha1`, `sha224`, `sha256`, `sha384`, `sha512`); for files downloaded
+from a URL also `<algorithm>:<URL of a checksum file>` in the `sha256sum` format (as `get_url` accepts).
+The defaults are the checksums of the default files: the ISO one is published by mfsbsd, the archives from
+support.org.ua have no published checksums (the files on the mirrors may differ). If you change a file,
+set its checksum too.
+Downloads and uploads are verified on the target before they are used; with checksums, the archives are downloaded
+to the work directory first and extracted from there (again only when the archive changes).
+
     lisoq_ramdisk_enable: false
 Use (and create) RAM-disk partitions on the target system (before running QEMU).
 
