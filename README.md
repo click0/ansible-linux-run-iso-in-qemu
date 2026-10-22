@@ -40,7 +40,8 @@ Installed packages on the control node (Ansible):
   - sshpass  
 If you use password login to target hosts via `ssh`.
 The local files (`lisoq_iso_file_local`, `lisoq_qemu_static_custom_local`) are then uploaded with `rsync` + `sshpass`
-as the user Ansible logs in as. The password must be set in a variable (`ansible_password` or `ansible_ssh_pass`):
+as the user Ansible logs in as. Without a password they are uploaded with `ansible.posix.synchronize`, also as that
+user and without sudo, so become on the target may ask for a password. The password must be set in a variable (`ansible_password` or `ansible_ssh_pass`):
 a password typed with `--ask-pass` is not visible to the role.
 
 ## Variables
@@ -98,7 +99,8 @@ Install QEMU from the package repository.
 How much RAM (in MiB) can you use inside QEMU.
 
     lisoq_qemu_cpu: '' 
-How much CPU core can you use inside QEMU. By default `''` and role allocates all CPU cores for QEMU use.
+How much CPU core can you use inside QEMU. By default `''` and role allocates all CPU cores for QEMU use,
+but at most 255 (the limit of the `pc` machine; QEMU does not start with more).
 
     lisoq_qemu_disk: ''
 List of block disk devices to connect to QEMU. By default, the role passes all block devices found on the host machine
@@ -184,7 +186,8 @@ Use (and create) RAM-disk partitions on the target system (before running QEMU).
 
     lisoq_ramdisk_path: '/mnt'
 The preferred path for the RAM-disk partition. The role keeps its files (ISO, QEMU archives) in the `lisoq` subdirectory of the chosen path
-(mode 0700, owned by the user the role runs as, or by the SSH login user when files are uploaded with a password).
+(mode 0700, owned by the user the role runs as, or by the SSH login user when local files are uploaded: they are
+uploaded without become). A missing directory is created with mode 0755; the mode of an existing one is not changed.
 
     lisoq_ramdisk_another_path: '/tmp'
 The alternative path for the RAM-disk partition, used when `lisoq_ramdisk_path` is already mounted with another filesystem

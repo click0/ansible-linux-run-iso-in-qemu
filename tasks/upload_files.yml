@@ -16,10 +16,11 @@
 
 # Connection settings of the target host, accepting both current and legacy variable names.
 # The password must be in an inventory variable: a password typed with --ask-pass is not visible to the role.
+# Without a port variable ssh picks the port itself (~/.ssh/config or 22), as it does for Ansible.
 - name: Collect SSH connection settings for uploads
   set_fact:
     __lisoq_ssh_host: "{{ ansible_ssh_host | default(ansible_host) | default(inventory_hostname) }}"
-    __lisoq_ssh_port: "{{ ansible_ssh_port | default(ansible_port) | default(22) }}"
+    __lisoq_ssh_port: "{{ ansible_ssh_port | default(ansible_port) | default('') }}"
     __lisoq_ssh_user: "{{ __lisoq_login_user.stdout }}"
     __lisoq_ssh_password: "{{ ansible_ssh_password | default(ansible_ssh_pass) | default(ansible_password) | default('') }}"
   no_log: true
@@ -31,13 +32,12 @@
     __lisoq_rsync_host: "{{ ('[' ~ __lisoq_ssh_host ~ ']') if (':' in __lisoq_ssh_host) else __lisoq_ssh_host }}"
   when: (__lisoq_iso_local is truthy) or (__lisoq_static_local is truthy)
 
-# The password-based upload logs in as the SSH user without become, so the work directory belongs to it.
+# Local files are uploaded as the SSH login user without become (sudo on the target may need a password,
+# which rsync cannot give), so the work directory belongs to it.
 - name: Choose the owner of the work directory
   set_fact:
     __lisoq_work_dir_owner: >-
-      {{ __lisoq_ssh_user
-         if (((__lisoq_iso_local is truthy) or (__lisoq_static_local is truthy))
-             and (__lisoq_ssh_password | length > 0))
+      {{ __lisoq_ssh_user if ((__lisoq_iso_local is truthy) or (__lisoq_static_local is truthy))
          else ansible_user_id }}
 
 # The work directory must be private: if it already exists and is not a directory owned by the user the
@@ -126,7 +126,7 @@
       command: >-
         rsync --copy-links --times --itemize-changes --protect-args
         --rsh="sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-        -p {{ __lisoq_ssh_port }} -l {{ __lisoq_ssh_user }}"
+        {{ ('-p ' ~ __lisoq_ssh_port) if (__lisoq_ssh_port is truthy) else '' }} -l {{ __lisoq_ssh_user }}"
         {{ __lisoq_iso_local | quote }} {{ __lisoq_rsync_host }}:{{ __lisoq_work_dir | quote }}/
       register: __lisoq_upload_iso
       changed_when: __lisoq_upload_iso.stdout is truthy
@@ -148,13 +148,18 @@
         # (default) overwrite on source change
         copy_links: true # Copy symlinks as the item
       ignore_errors: '{{ ansible_check_mode }}'
+      # As the login user: with become synchronize runs 'sudo rsync' on the target, which fails if sudo
+      # asks for a password.
+      become: false
+      vars:
+        ansible_become: false
       when: (__lisoq_iso_local is truthy) and (__lisoq_ssh_password | length == 0)
 
     - name: Upload file 'lisoq_qemu_static_custom_local' via ssh.
       command: >-
         rsync --copy-links --times --itemize-changes --protect-args
         --rsh="sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-        -p {{ __lisoq_ssh_port }} -l {{ __lisoq_ssh_user }}"
+        {{ ('-p ' ~ __lisoq_ssh_port) if (__lisoq_ssh_port is truthy) else '' }} -l {{ __lisoq_ssh_user }}"
         {{ __lisoq_static_local | quote }} {{ __lisoq_rsync_host }}:{{ __lisoq_work_dir | quote }}/
       register: __lisoq_upload_static
       changed_when: __lisoq_upload_static.stdout is truthy
@@ -177,6 +182,9 @@
         copy_links: true
       register: __lisoq_sync_static
       ignore_errors: '{{ ansible_check_mode }}'
+      become: false
+      vars:
+        ansible_become: false
       when: (__lisoq_static_local is truthy) and
             (__lisoq_ssh_password | length == 0)
 

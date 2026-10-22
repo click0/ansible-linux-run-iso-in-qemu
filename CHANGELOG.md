@@ -83,6 +83,16 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 - The ramdisk is no longer mounted on top of `lisoq_ramdisk_path` when a filesystem is mounted below it
   (e.g. a server disk on `/mnt/data`): that hid the disk's files. `lisoq_ramdisk_another_path` is used instead.
 
+- On servers with more than 255 CPU threads QEMU did not start ("max CPUs supported by machine 'pc' is 255"):
+  the autodetected `-smp` is now capped at 255.
+- The ramdisk mount point (`/mnt` by default) is no longer made world-writable (01777): the mode stayed after the
+  tmpfs was unmounted. A missing directory is created with 0755, an existing one keeps its mode.
+- Uploads of local files with key-based login as a non-root user and a sudo password failed:
+  `ansible.posix.synchronize` ran `sudo rsync` on the target, which cannot ask for the password. Local files are now
+  uploaded as the login user, who owns the work directory.
+- Password-based uploads used port 22 when the inventory had no port: an SSH port from `~/.ssh/config` (used by
+  Ansible itself) was overridden.
+
 ## [1.5.0] - 2026-10-21
 
 ### ⚠ Changed
