@@ -93,6 +93,13 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 - Password-based uploads used port 22 when the inventory had no port: an SSH port from `~/.ssh/config` (used by
   Ansible itself) was overridden.
 
+- With firewalld running on EL8/EL9 (nftables backend) whitelisted clients could not reach the QEMU ports: firewalld
+  rejects them in its own table, where the ACCEPT of the ACL does not count. The ports are now opened in the
+  firewalld runtime configuration (default zone); the ACL still drops all other addresses. The check now runs on
+  every OS family, not only RedHat.
+- Downloads (ISO, and the archives with checksums) no longer go through `~/.ansible/tmp` on the root filesystem first
+  (in RAM on rescue systems, and possibly too small for an ISO): they are downloaded straight into the work directory.
+
 ## [1.5.0] - 2026-10-21
 
 ### ⚠ Changed

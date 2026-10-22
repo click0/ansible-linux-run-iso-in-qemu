@@ -222,6 +222,9 @@ The rules live in the `LISOQ_QEMU` chain (INPUT jumps to it). While a QEMU start
 its ports stay protected too, even if the port settings have changed. If IPv6 is enabled but `ip6tables` does not
 work, the role fails instead of leaving the ports open over IPv6.
 Setting it to `false` removes the `LISOQ_QEMU` chain left by an earlier run.
+If firewalld is running, it is left on, and the QEMU ports are opened in its runtime configuration (default zone),
+because with its nftables backend (EL8+) it would otherwise reject the whitelisted clients too. `firewall-cmd --reload`
+closes them again until the role is re-run. Other nftables rulesets that drop these ports must allow them themselves.
 
     lisoq_firewall_acl_allow_ansible_ip: true
 Also allow the address the Ansible control node connects from, as seen by the server

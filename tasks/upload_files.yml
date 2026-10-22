@@ -196,6 +196,9 @@
         # A file path (not a directory), so an existing ISO is not downloaded again on every run.
         # The name must match the -cdrom path built in 1-configure.yml.
         dest: '{{ __lisoq_work_dir }}/{{ __lisoq_iso_url | basename }}'
+        # Download straight into the work directory, not into remote_tmp (~/.ansible/tmp): on a rescue system
+        # the root filesystem is in RAM too and may be too small for an ISO.
+        tmp_dest: '{{ __lisoq_work_dir }}'
         mode: '0644'
         # With a checksum an existing file is verified too, and downloaded again if it does not match.
         checksum: '{{ __lisoq_checksum_iso | default(omit, true) }}'
@@ -269,6 +272,7 @@
       ansible.builtin.get_url:
         url: '{{ lisoq_qemu_static_custom_uefi_url }}'
         dest: '{{ __lisoq_work_dir }}/{{ lisoq_qemu_static_custom_uefi_url | basename }}'
+        tmp_dest: '{{ __lisoq_work_dir }}'
         mode: '0644'
         checksum: '{{ __lisoq_checksum_uefi }}'
       register: __lisoq_download_uefi
@@ -294,6 +298,7 @@
       ansible.builtin.get_url:
         url: '{{ __lisoq_static_url }}'
         dest: '{{ __lisoq_work_dir }}/{{ __lisoq_static_url | basename }}'
+        tmp_dest: '{{ __lisoq_work_dir }}'
         mode: '0644'
         checksum: '{{ __lisoq_checksum_static }}'
       register: __lisoq_download_static
