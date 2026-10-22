@@ -6,6 +6,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y.Z` git tags
 (the tag is the version imported by Ansible Galaxy).
 
+## [Unreleased]
+
+### Changed
+
+- Autodetected disks are passed to QEMU in name order (before: in the order the kernel listed them, which could
+  change between runs). ZFS zvols (`zd*`) and `bcache*` devices are excluded from autodetection.
+
+- If IPv6 is enabled but `ip6tables` does not work, the firewall step fails instead of setting IPv4 rules only
+  (QEMU's VNC with `lisoq_qemu_vnc_type: share` also listens on IPv6).
+
+### Fixed
+
+- Changing the port settings while the QEMU of the role is running (it is not restarted) no longer opens the
+  ports it still listens on: they stay in the firewall ACL until it is stopped.
+- The firewall ACL is updated without a window in which the ports are open (new rules are added before the old
+  ones are removed), and an unchanged ACL no longer reports changes on every run.
+- Uploads with a password as a non-root `ansible_user` (README Example #2 with become) failed with "Permission
+  denied": the work directory was private to root. It is now owned by `ansible_user` in this case.
+- Extracting the QEMU/UEFI archives no longer changes the owner and mode of the work directory (both default
+  archives contain a `./` entry); with a custom archive packed by a normal user the next run refused to continue.
+- Check mode no longer fails on a host without the work directory (the ISO download and the archive extraction
+  are skipped), and no longer uploads `lisoq_qemu_static_custom_local` as a file named like the work directory.
+- `lisoq_qemu_disk` given as a string (`'sda'`, `'sda,sdb'`) was split into single characters; names with `/dev/`
+  work too.
+- Partitions (or other devices missing from `ansible_devices`) in `lisoq_qemu_disk` failed the 2 TiB check.
+- A message is printed when no disks are passed to QEMU.
+- Hosts of other OS families are skipped with a message (as the per-OS task files intended) instead of failing
+  on a missing vars file.
+- An existing ramdisk tmpfs that is large enough is no longer remounted (reported "changed" on every run).
+- The first step no longer runs `apt-get update` and reports "changed" on every run when `python3-apt` is already
+  installed.
+- A `-name` in `lisoq_qemu_args` no longer hides the running VM from the role (a re-run started a second QEMU on
+  the same disks): `-name lisoq` now comes after `lisoq_qemu_args`.
+- Password-based uploads work with paths containing spaces also with rsync older than 3.2.4 on the control node.
+- The password-based uploads report "changed" only when a file was actually transferred.
+- `lisoq_firewall_acl_enable: false` removes the `LISOQ_QEMU` chain left by an earlier run; before, the old
+  whitelist was enforced until reboot.
+
+- The ramdisk is no longer mounted on top of `lisoq_ramdisk_path` when a filesystem is mounted below it
+  (e.g. a server disk on `/mnt/data`): that hid the disk's files. `lisoq_ramdisk_another_path` is used instead.
+
 ## [1.5.0] - 2026-10-21
 
 ### ⚠ Changed
@@ -137,6 +178,7 @@ First release after 1.0.3. Versions 1.0.4, 1.1.0 and 1.2.0 were never tagged; th
 
 ## [1.0.0] - 2022-09-20
 
+[Unreleased]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.5.0...HEAD
 [1.5.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.4.0...1.5.0
 [1.4.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.2.1...1.4.0
 [1.2.1]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.0.3...1.2.1

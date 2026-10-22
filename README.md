@@ -95,8 +95,9 @@ How much RAM (in MiB) can you use inside QEMU.
 How much CPU core can you use inside QEMU. By default `''` and role allocates all CPU cores for QEMU use.
 
     lisoq_qemu_disk: ''
-List of block disk devices to connect to QEMU. By default, the role mounts all found block devices from the host machine.
-You can specify your own list of block devices:
+List of block disk devices to connect to QEMU. By default, the role passes all block devices found on the host machine
+(except `lisoq_qemu_exclude_disk*`, in name order). You can specify your own list of block devices
+(a string such as `'sda,sdb'` works too):
 
     lisoq_qemu_disk:
       - 'sda'
@@ -104,10 +105,13 @@ You can specify your own list of block devices:
 <br>
 
     lisoq_qemu_disk_allow_in_use: false
-Disks that are in use by the host (the disk, its partitions or LVM/md volumes on it are mounted or used as swap) are not passed to QEMU,
-because writing to them from QEMU at the same time corrupts them. Autodetected disks in use are skipped with a message;
-if such a disk is listed explicitly in `lisoq_qemu_disk`, the role fails. Set to `true` to pass them anyway (at your own risk).
-On a rescue system booted into RAM, the server disks are not mounted, so all of them are passed as before.
+Disks that are in use by the host are not passed to QEMU, because writing to them from QEMU at the same time corrupts them:
+the disk or anything on it is mounted or used as swap, an active md array, LVM volume or dm-crypt/multipath device sits on it
+(they write to the disk even when not mounted, e.g. an md resync), or it belongs to an imported ZFS pool.
+Autodetected disks in use are skipped with a message; if such a disk is listed explicitly in `lisoq_qemu_disk`, the role fails.
+Set to `true` to pass them anyway (at your own risk).
+Rescue systems often assemble md arrays (and activate LVM) automatically: stop them first (`mdadm --stop --scan`,
+`vgchange -an`, `zpool export`), otherwise these disks are skipped.
 <br>
 
     lisoq_qemu_exclude_disk:
@@ -126,6 +130,8 @@ You can override the variable yourself and add your own block devices to the exc
       - 'zram'
       - 'nbd'
       - 'md'
+      - 'zd'
+      - 'bcache'
 
 A list of block devices without a numeric suffix to be excluded from the list for intra-OS connection in QEMU.
 Based on the `lisoq_qemu_exclude_disk_regular_list` variable inside the role, a regular expression will be generated.
@@ -155,19 +161,22 @@ Sshd port that accepts connections _inside_ ISO image.
 Use (and create) RAM-disk partitions on the target system (before running QEMU).
 
     lisoq_ramdisk_path: '/mnt'
-The preferred path for the RAM-disk partition. The role keeps its files (ISO, QEMU archives) in the `lisoq` subdirectory of the chosen path.
+The preferred path for the RAM-disk partition. The role keeps its files (ISO, QEMU archives) in the `lisoq` subdirectory of the chosen path
+(mode 0700, owned by the user the role runs as, or by `ansible_user` when files are uploaded with a password).
 
     lisoq_ramdisk_another_path: '/tmp'
 The alternative path for the RAM-disk partition, used when `lisoq_ramdisk_path` is already mounted with another filesystem
-(e.g. a server disk mounted on `/mnt` in rescue mode).
+or has a filesystem mounted below it (e.g. a server disk mounted on `/mnt` or `/mnt/data` in rescue mode; a tmpfs on top
+would hide it).
 If the chosen path is already a tmpfs, it is reused and grown to `used + lisoq_ramdisk_size`; it is never shrunk.
-If both paths are mounted with non-tmpfs filesystems, the role fails.
+If neither path is usable, the role fails.
 
     lisoq_ramdisk_size: '250'
 The size of the RAM-disk partition in MiB (mebibytes).
 
-    lisoq_total_need_ram: '' # (lisoq_ramdisk_size + lisoq_qemu_ram) or min 250MiB - autodetect 
+    lisoq_total_need_ram: '' # (lisoq_ramdisk_size + lisoq_qemu_ram) or min 300MiB - autodetect
 The minimum amount of RAM on the target system in MiB (mebibytes). If empty, it is the sum of `lisoq_ramdisk_size` and `lisoq_qemu_ram` (at least 300 MiB).
+In any case the role requires at least 512 MiB of RAM on the target system and 256 MiB of free RAM for QEMU.
 
     lisoq_ramdisk_package_enable: false
 Create a RAM disk to store packages on the system in directory `/var/cache/yum` or `/var/cache/apt`. Not all LiveCD systems have extra 200-400 MB to store the package base, that's why we use RAM-disk.
@@ -184,6 +193,10 @@ only from the whitelisted IPs/networks; connections from other addresses to thes
 Whitelists are separate for IPv4 and IPv6. The rules apply only to these ports, not to the server's own SSH.
 Enabled by default since 1.4.0: without it anyone could reach the VM's SSH, and live ISOs such as mfsbsd
 have a well-known root password.
+The rules live in the `LISOQ_QEMU` chain (INPUT jumps to it). While a QEMU started by the role is still running,
+its ports stay protected too, even if the port settings have changed. If IPv6 is enabled but `ip6tables` does not
+work, the role fails instead of leaving the ports open over IPv6.
+Setting it to `false` removes the `LISOQ_QEMU` chain left by an earlier run.
 
     lisoq_firewall_acl_allow_ansible_ip: true
 Also allow the address the Ansible control node connects from, as seen by the server

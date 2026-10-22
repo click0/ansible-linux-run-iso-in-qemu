@@ -19,6 +19,10 @@
   include_tasks: 5-iptables.yml
   when: (lisoq_firewall_acl_enable | bool)
 
+- name: Remove the firewall ACL of an earlier run.
+  include_tasks: 5-iptables-remove.yml
+  when: (not lisoq_firewall_acl_enable | bool)
+
 - name: Upload files and extract (if needed).
   include_tasks: upload_files.yml
 

@@ -51,22 +51,13 @@
         state: directory
         mode: '0755'
 
-    - name: Сalculate the size of the ram-disk partition for packages.
+    - name: Calculate the size of the ram-disk partition for packages.
       set_fact:
         __lisoq_ramdisk_package_size: >-
           {{ lisoq_ramdisk_package_size if (lisoq_ramdisk_package_size is truthy)
              else ((((__var_cache_package_path_size | int) / 1024)|int) + __ramdisk_package_default_size|int)|int }}
 
-    - name: 'Ensure ramdisk {{ __var_cache_package_path }} is mounted'
-      ansible.posix.mount:
-        path: '{{ __var_cache_package_path }}'
-        src: lisoq-pkgcache # marks the role's tmpfs for purge (post-install)
-        fstype: tmpfs
-        opts: 'size={{ __lisoq_ramdisk_package_size | int }}M'
-        state: remounted
-      when: (lisoq_ramdisk_package_enable | bool) and (__lisoq_ramdisk_package_mounted | bool)
-
-    - name: 'Ensure ramdisk {{ __var_cache_package_path }} is not mounted'
+    - name: 'Mount the ramdisk on {{ __var_cache_package_path }}'
       ansible.posix.mount:
         path: '{{ __var_cache_package_path }}'
         src: lisoq-pkgcache # marks the role's tmpfs for purge (post-install)
