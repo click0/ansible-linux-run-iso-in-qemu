@@ -479,6 +479,17 @@
   when: (__lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_in_use | length > 0) and
         (not lisoq_qemu_disk_allow_in_use | bool)
 
+# Default (lisoq_qemu_disk_allow_in_use: true): all disks go to QEMU, the role only warns. It does not unmount or
+# stop anything on the host.
+- name: Warn about disks in use by the host that are passed to QEMU
+  debug:
+    msg: >-
+      Disks in use by the host (mounted, swap, active md/LVM/dm/bcache, imported ZFS, mounted btrfs) are passed to QEMU
+      anyway: {{ __lisoq_qemu_disk_in_use | join(", ") }}. Writing to them from the host and from the VM at the same
+      time corrupts them: stop what uses them on the host (e.g. umount, swapoff, mdadm --stop --scan, vgchange -an,
+      zpool export), or set lisoq_qemu_disk_allow_in_use: false to leave them out.
+  when: (__lisoq_qemu_disk_in_use | length > 0) and (lisoq_qemu_disk_allow_in_use | bool)
+
 # lsblk instead of ansible_devices: lisoq_qemu_disk may also list partitions or other block devices.
 # Output: size in bytes, read-only flag.
 - name: Find the size of the selected disks

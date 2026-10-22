@@ -8,6 +8,12 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ## [Unreleased]
 
+### ⚠ Changed
+
+- `lisoq_qemu_disk_allow_in_use` defaults to `true` again: all disks are passed to QEMU, also those in use by the
+  host (as before 1.5.0); the role only prints a warning with these disks and does not unmount or stop anything.
+  Set it to `false` to keep the 1.5.0 behaviour (disks in use are skipped, or the role fails for an explicit list).
+
 ### Fixed
 
 - If Ansible connects over IPv6, only that IPv6 address was whitelisted, but QEMU forwards the SSH/RDP ports over
