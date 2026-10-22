@@ -17,7 +17,7 @@ The role uses QEMU of two types - from the package base of the system and univer
 The ISO image can be used as your favorite OS install disk, diagnostic disk, or other live operating system ([Live-CD](https://en.wikipedia.org/wiki/Live_CD))
 Sources for obtaining ISO image and QEMU universal binary - local system running Ansible, Rescue server mode itself and ftp/http(s).
 
-There is no Internet inside the system running inside QEMU yet, but we will fix this in the next release.  
+The system inside QEMU has Internet access through QEMU user networking (NAT), also when no ports are forwarded.  
 To increase security for access to the system in QEMU, you can specify a whitelist of IP/networks through the `iptables` firewall.  
 
 ## Requirements
@@ -79,10 +79,11 @@ Enable it only if the OS must be installed or booted in UEFI mode, and only with
 (the default mfsbsd 14.2 ISO does, older mfsbsd 12.x ISOs do not). Disks larger than 2 TiB are fully usable in BIOS mode as well.
 
     lisoq_qemu_args_port_ssh: '1022'
-External port for ssh forwarding to QEMU internal port `22`.
+External port for ssh forwarding to QEMU internal port `22`. Empty: no ssh forwarding.
 
     lisoq_qemu_args_port_rdp: '3389'
-External port for RDP forwarding to internal QEMU port `3389`
+External port for RDP forwarding to internal QEMU port `3389`. Empty: no RDP forwarding.
+Without both the VM still has the user network (NAT) and Internet access, only the VNC port is reachable from outside.
 
     lisoq_qemu_args_port_vnc: '5901'
 External port for forwarding VNC to internal QEMU port `5901`
@@ -190,7 +191,8 @@ Use (and create) RAM-disk partitions on the target system (before running QEMU).
     lisoq_ramdisk_path: '/mnt'
 The preferred path for the RAM-disk partition. The role keeps its files (ISO, QEMU archives) in the `lisoq` subdirectory of the chosen path
 (mode 0700, owned by the user the role runs as, or by the SSH login user when local files are uploaded: they are
-uploaded without become). A missing directory is created with mode 0755; the mode of an existing one is not changed.
+uploaded without become; a directory owned by either of them is reused). A missing directory is created with mode 0755;
+the mode of an existing one is not changed.
 
     lisoq_ramdisk_another_path: '/tmp'
 The alternative path for the RAM-disk partition, used when `lisoq_ramdisk_path` is already mounted with another filesystem
@@ -241,11 +243,11 @@ Ansible connects over IPv6, add the IPv4 address you will connect from to `lisoq
 
     lisoq_firewall_acl_ipv4_white:
       - '127.0.0.0/8'
-Default white list for IPv4 networks.
+Default white list for IPv4 networks (a string such as `'10.0.0.0/8,192.168.1.0/24'` works too; empty: none).
 
     lisoq_firewall_acl_ipv6_white:
       - '::1/128'
-Default white list for IPv6 networks.
+Default white list for IPv6 networks (a string works too; empty: none).
 
     lisoq_qemu_args: '
     -net nic

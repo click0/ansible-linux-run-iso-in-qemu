@@ -6,6 +6,7 @@
       - gpg
       - ca-certificates
     update_cache: true
+    cache_valid_time: 3600
   when: (__lisoq_qemu_package | bool)
 
 - name: '{{ ansible_os_family }} | Install qemu-system-x86'

@@ -3,7 +3,8 @@
 # Upload (from Ansible host)
 # In order not to cache in /root/.ansible/tmp... if there is not enough free disk space.
 
-# The user Ansible logs in as (also when it comes from remote_user, -u or ~/.ssh/config).
+# The user Ansible logs in as (also when it comes from remote_user, -u or ~/.ssh/config). Local files are uploaded
+# as this user, and a work directory it owns (left by such a run) is accepted in every mode.
 - name: Find the SSH login user
   command: id -un
   become: false
@@ -12,7 +13,6 @@
   register: __lisoq_login_user
   changed_when: false
   check_mode: false
-  when: (__lisoq_iso_local is truthy) or (__lisoq_static_local is truthy)
 
 # Connection settings of the target host, accepting both current and legacy variable names.
 # The password must be in an inventory variable: a password typed with --ask-pass is not visible to the role.
@@ -41,8 +41,9 @@
          else ansible_user_id }}
 
 # The work directory must be private: if it already exists and is not a directory owned by the user the
-# role runs as (or the SSH user) and writable only by it (e.g. pre-created in /tmp by another user), files
-# in it could have been planted, so the role stops instead of reusing them.
+# role runs as or the SSH login user (a previous run with local files) and writable only by the owner (e.g.
+# pre-created in /tmp by another user), files in it could have been planted, so the role stops instead of
+# reusing them.
 - name: Check the work directory of the role
   ansible.builtin.stat:
     path: '{{ __lisoq_work_dir }}'
@@ -51,11 +52,12 @@
 - name: Refuse a work directory that others could have prepared
   fail:
     msg: >-
-      {{ __lisoq_work_dir }} exists but is not a directory owned by {{ __lisoq_work_dir_owner }} and writable
-      only by it, so files in it could have been planted by another user. Remove it and re-run the role.
+      {{ __lisoq_work_dir }} exists but is not a directory owned by
+      {{ [ansible_user_id, __lisoq_login_user.stdout] | unique | join(' or ') }} and writable only by the owner,
+      so files in it could have been planted by another user. Remove it and re-run the role.
   when: (__lisoq_work_dir_stat.stat.exists) and
         ((not __lisoq_work_dir_stat.stat.isdir) or
-         (__lisoq_work_dir_stat.stat.pw_name not in [ansible_user_id, __lisoq_work_dir_owner]) or
+         (__lisoq_work_dir_stat.stat.pw_name not in [ansible_user_id, __lisoq_login_user.stdout]) or
          (__lisoq_work_dir_stat.stat.wgrp) or (__lisoq_work_dir_stat.stat.woth))
 
 - name: Create the work directory of the role
