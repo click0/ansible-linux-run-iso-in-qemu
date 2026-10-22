@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y.Z` git tags
 (the tag is the version imported by Ansible Galaxy).
 
+## [Unreleased]
+
+### Fixed
+
+- With both `lisoq_qemu_args_port_ssh` and `lisoq_qemu_args_port_rdp` empty, QEMU got `-net nic` without a network
+  backend, so the VM had no network at all. The user network (NAT) is now always added.
+- `lisoq_firewall_acl_ipv4_white` / `lisoq_firewall_acl_ipv6_white` given as a string (`'10.0.0.0/8,192.168.1.0/24'`)
+  were split into characters, and an empty (null) value failed the role; strings and empty values are now accepted.
+- After a run that uploaded local files (work directory owned by the SSH login user), a run with URL/remote files
+  under become refused the work directory ("not a directory owned by root"). A directory owned by the SSH login
+  user or by the user the role runs as is accepted in every mode.
+- `apt-get update` ran on every run before the QEMU package install, also with a fresh cache.
+
 ## [1.7.0] - 2026-10-22
 
 ### ⚠ Changed
@@ -265,6 +278,7 @@ First release after 1.0.3. Versions 1.0.4, 1.1.0 and 1.2.0 were never tagged; th
 
 ## [1.0.0] - 2022-09-20
 
+[Unreleased]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.7.0...master
 [1.7.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.6.0...1.7.0
 [1.6.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.5.0...1.6.0
 [1.5.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.4.0...1.5.0

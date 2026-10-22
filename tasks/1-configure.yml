@@ -84,11 +84,16 @@
   check_mode: false
   when: (lisoq_firewall_acl_enable | bool) and (lisoq_firewall_acl_allow_ansible_ip | bool)
 
+# The whitelists may also be strings ('10.0.0.0/8,192.168.1.0/24' or with spaces) or empty.
 - name: Set the firewall whitelists
   set_fact:
     __lisoq_ansible_ip: "{{ (__lisoq_ssh_connection.stdout | default('')).split() | first | default('') }}"
-    __lisoq_acl_ipv4_white: "{{ lisoq_firewall_acl_ipv4_white | default([]) | list }}"
-    __lisoq_acl_ipv6_white: "{{ lisoq_firewall_acl_ipv6_white | default([]) | list }}"
+    __lisoq_acl_ipv4_white: >-
+      {{ (lisoq_firewall_acl_ipv4_white | regex_replace(',', ' ')).split() if (lisoq_firewall_acl_ipv4_white is string)
+         else (lisoq_firewall_acl_ipv4_white | default([], true) | list) }}
+    __lisoq_acl_ipv6_white: >-
+      {{ (lisoq_firewall_acl_ipv6_white | regex_replace(',', ' ')).split() if (lisoq_firewall_acl_ipv6_white is string)
+         else (lisoq_firewall_acl_ipv6_white | default([], true) | list) }}
 
 - name: Add the address of the Ansible control node to the firewall whitelist
   set_fact:
@@ -337,6 +342,13 @@
       {#- -#}
       hostfwd=tcp::{{ lisoq_qemu_args_port_rdp }}-:{{ lisoq_qemu_args_port_rdp }}
   when: (lisoq_qemu_args_port_ssh is truthy) and (lisoq_qemu_args_port_rdp is truthy)
+
+# Without forwarded ports the VM still gets the user network backend (NAT): '-net nic' alone leaves it without
+# Internet access.
+- name: Add net user options to qemu_args. No port forwarding
+  set_fact:
+    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -net user'
+  when: (lisoq_qemu_args_port_ssh is falsy) and (lisoq_qemu_args_port_rdp is falsy)
 
 - name: Add keyboard layot option to qemu_args.
   set_fact:
