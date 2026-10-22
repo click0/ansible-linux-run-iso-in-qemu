@@ -54,7 +54,7 @@
     # The QEMU of this role: '-name lisoq'; older role versions are recognised by the SSH port forwarding.
     # Other VMs on the host (e.g. from libvirt) do not count.
     __lisoq_qemu_pgrep_pattern: >-
-      ^([^ ]*/)?qemu-system-x86_64 .*(-name lisoq( |$)
+      ^(.*/)?qemu-system-x86_64 .*(-name lisoq( |$)
       {%- if lisoq_qemu_args_port_ssh is truthy %}|hostfwd=tcp::{{ lisoq_qemu_args_port_ssh }}-{% endif %})
     # Firewall ports = the ports QEMU actually listens on: SSH/RDP forwarding if set, and the VNC port
     # after the same correction as below (values under 5900 mean 5901).
@@ -64,14 +64,18 @@
     __lisoq_ramdisk_dir: "{{ lisoq_ramdisk_path if (lisoq_ramdisk_path is truthy) else lisoq_ramdisk_another_path }}"
     __lisoq_total_need_ram: >-
       {{ lisoq_total_need_ram if (lisoq_total_need_ram is truthy)
-         else [lisoq_ramdisk_size | int + lisoq_qemu_ram | int, __need_ram | int] | max }}
+         else [((lisoq_ramdisk_enable | bool) | ternary(lisoq_ramdisk_size | int, 0)) + lisoq_qemu_ram | int,
+               __need_ram | int] | max }}
 
 # Firewall whitelist: user networks plus the address the Ansible control node connects from, as seen by
 # the server. SSH_CONNECTION is 'client_ip client_port server_ip server_port'; it is read without become,
-# because sudo removes it from the environment.
+# because sudo removes it from the environment. ansible_become (not only the keyword) is overridden, since an
+# inventory ansible_become: true takes precedence over 'become: false'.
 - name: Find the address of the Ansible control node as seen by the server
   command: printenv SSH_CONNECTION
   become: false
+  vars:
+    ansible_become: false
   register: __lisoq_ssh_connection
   changed_when: false
   failed_when: false
@@ -110,6 +114,15 @@
   when: (lisoq_qemu_enable | bool) and (not __lisoq_qemu_package | bool) and
         (__lisoq_static_local is falsy) and (__lisoq_static_url is falsy)
 
+# EL8+ have no qemu-system-x86 package, and their qemu-kvm supports neither the 'pc' machine nor IDE disks.
+- name: Check that package QEMU is available
+  fail:
+    msg: >-
+      lisoq_qemu_install is not supported on {{ ansible_distribution }} {{ ansible_distribution_major_version }}
+      (no qemu-system-x86 package). Use the static QEMU: lisoq_qemu_static_custom_enable: true.
+  when: (__lisoq_qemu_package | bool) and (ansible_os_family == 'RedHat') and
+        (ansible_distribution_major_version | int >= 8)
+
 # Without -vnc QEMU opens a GTK/SDL window and fails on a headless server.
 - name: Check lisoq_qemu_vnc_type
   fail:
@@ -121,60 +134,68 @@
     msg: "not enough RAM!"
   when: (ansible_memory_mb.real.total < 512) or (ansible_memory_mb.real.total < (__lisoq_total_need_ram | int))
 
+# A running QEMU of the role is not restarted (start_qemu.yml), and the RAM it uses is not free.
+- name: Check whether the QEMU of the role is already running
+  command:
+    argv:
+      - pgrep
+      - -f
+      - '{{ __lisoq_qemu_pgrep_pattern }}'
+  register: __lisoq_qemu_running_early
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
 - name: We use fail if we do not have enough RAM for QEMU
   fail:
     msg: "QEMU need more RAM ( > 256 MiB )!"
-  when: ((lisoq_qemu_ram | int) < 256 ) or (ansible_memory_mb.nocache.free < 256)
+  when: ((lisoq_qemu_ram | int) < 256 ) or
+        ((ansible_memory_mb.nocache.free < 256) and (__lisoq_qemu_running_early.rc != 0))
 
 - name: if RamDISK enabled
   block:
 
+    # ansible.posix.mount cannot remount such a path (it splits the output of 'mount -v' at spaces).
+    - name: Check the ramdisk paths
+      fail:
+        msg: 'lisoq_ramdisk_path and lisoq_ramdisk_another_path must not contain spaces.'
+      when: (lisoq_ramdisk_path is search('\s')) or (lisoq_ramdisk_another_path is search('\s'))
+
     # lisoq_ramdisk_path is preferred. lisoq_ramdisk_another_path is used when the first one is already
     # mounted with another filesystem or has one mounted below it (e.g. a server disk on /mnt in rescue mode).
     # An existing tmpfs is reused and only grown, never shrunk.
-    # ansible_mounts skips tmpfs, so ask findmnt. Output: FSTYPE SOURCE SIZE AVAIL (bytes), last line = top mount.
-    - name: Find existing mounts of the ramdisk paths
-      command:
-        argv:
-          - findmnt
-          - -n
-          - -r
-          - -b
-          - -o
-          - FSTYPE,SOURCE,SIZE,AVAIL
-          - --mountpoint
-          - '{{ item }}'
-      loop:
-        - '{{ lisoq_ramdisk_path }}'
-        - '{{ lisoq_ramdisk_another_path }}'
-      register: __lisoq_ramdisk_findmnt
+    # ansible_mounts skips tmpfs, so ask findmnt. Only options of util-linux 2.23 (EL7) are used: no
+    # --mountpoint, no -b. In -r output spaces in paths are escaped as \x20; the last entry of a path is
+    # the top mount.
+    - name: List mounted filesystems
+      command: findmnt -n -r -o TARGET,FSTYPE,SOURCE
+      register: __lisoq_mounts
       changed_when: false
-      failed_when: __lisoq_ramdisk_findmnt.rc > 1
       check_mode: false
 
+    - name: Normalise the ramdisk paths
+      set_fact:
+        __lisoq_ramdisk_main_target: >-
+          {{ lisoq_ramdisk_path | regex_replace('(.)/+$', '\1') | replace(' ', '\x20') }}
+        __lisoq_ramdisk_other_target: >-
+          {{ lisoq_ramdisk_another_path | regex_replace('(.)/+$', '\1') | replace(' ', '\x20') }}
+
+    # *_mount: [FSTYPE, SOURCE] of the top mount on the path, [] if it is not a mount point.
     # A new tmpfs on a directory would hide the filesystems mounted below it (e.g. a server disk on /mnt/data).
-    - name: List all mount points
-      command: findmnt -n -r -o TARGET
-      register: __lisoq_ramdisk_targets
-      changed_when: false
-      check_mode: false
-
     - name: Parse existing mounts of the ramdisk paths
       set_fact:
         __lisoq_ramdisk_main_mount: >-
-          {{ ((__lisoq_ramdisk_findmnt.results[0].stdout_lines | last)
-              if __lisoq_ramdisk_findmnt.results[0].stdout_lines else '').split() }}
+          {{ (__lisoq_mounts.stdout_lines | select('match', (__lisoq_ramdisk_main_target | regex_escape) ~ ' ')
+              | list | last | default('')).split()[1:] }}
         __lisoq_ramdisk_other_mount: >-
-          {{ ((__lisoq_ramdisk_findmnt.results[1].stdout_lines | last)
-              if __lisoq_ramdisk_findmnt.results[1].stdout_lines else '').split() }}
+          {{ (__lisoq_mounts.stdout_lines | select('match', (__lisoq_ramdisk_other_target | regex_escape) ~ ' ')
+              | list | last | default('')).split()[1:] }}
         __lisoq_ramdisk_main_submounts: >-
-          {{ __lisoq_ramdisk_targets.stdout_lines
-             | select('match', (lisoq_ramdisk_path | regex_replace('/+$', '') | regex_escape) ~ '/')
-             | list }}
+          {{ __lisoq_mounts.stdout_lines | map('split') | map('first')
+             | select('match', (__lisoq_ramdisk_main_target | regex_escape) ~ '/') | list }}
         __lisoq_ramdisk_other_submounts: >-
-          {{ __lisoq_ramdisk_targets.stdout_lines
-             | select('match', (lisoq_ramdisk_another_path | regex_replace('/+$', '') | regex_escape) ~ '/')
-             | list }}
+          {{ __lisoq_mounts.stdout_lines | map('split') | map('first')
+             | select('match', (__lisoq_ramdisk_other_target | regex_escape) ~ '/') | list }}
 
     # Usable: an existing tmpfs (it is only remounted), or a directory that is not a mount point and has
     # nothing mounted below it.
@@ -203,13 +224,36 @@
         __lisoq_ramdisk_mount: >-
           {{ (__lisoq_ramdisk_main_ok | bool) | ternary(__lisoq_ramdisk_main_mount, __lisoq_ramdisk_other_mount) }}
 
+    # Output: total blocks, free blocks, block size.
+    - name: Find the size of the existing tmpfs
+      command:
+        argv:
+          - stat
+          - -f
+          - -c
+          - '%b %f %S'
+          - '{{ __lisoq_ramdisk_dir }}'
+      register: __lisoq_ramdisk_statfs
+      changed_when: false
+      check_mode: false
+      when: (__lisoq_ramdisk_mount is truthy)
+
     - name: Calculate the ramdisk size
       set_fact:
+        __lisoq_ramdisk_cur_mib: >-
+          {{ (((__lisoq_ramdisk_statfs.stdout | default('0 0 0')).split()[0] | int)
+              * ((__lisoq_ramdisk_statfs.stdout | default('0 0 0')).split()[2] | int) / 1048576)
+             | round(0, 'ceil') | int }}
+        __lisoq_ramdisk_used_mib: >-
+          {{ ((((__lisoq_ramdisk_statfs.stdout | default('0 0 0')).split()[0] | int)
+               - ((__lisoq_ramdisk_statfs.stdout | default('0 0 0')).split()[1] | int))
+              * ((__lisoq_ramdisk_statfs.stdout | default('0 0 0')).split()[2] | int) / 1048576)
+             | round(0, 'ceil') | int }}
+
+    - name: Calculate the new ramdisk size
+      set_fact:
         __lisoq_ramdisk_size_mib: >-
-          {{ [ ((__lisoq_ramdisk_mount[2] | default(0) | int) / 1048576) | round(0, 'ceil') | int,
-               (((__lisoq_ramdisk_mount[2] | default(0) | int)
-                 - (__lisoq_ramdisk_mount[3] | default(0) | int)) / 1048576) | round(0, 'ceil') | int
-               + (lisoq_ramdisk_size | int) ] | max }}
+          {{ [__lisoq_ramdisk_cur_mib | int, (__lisoq_ramdisk_used_mib | int) + (lisoq_ramdisk_size | int)] | max }}
 
     - name: Ensure ramdisk directory exists
       ansible.builtin.file:
@@ -226,17 +270,20 @@
         opts: 'size={{ __lisoq_ramdisk_size_mib }}M'
         state: ephemeral
       # An existing tmpfs that is large enough is left alone (a remount would report a change on every run).
-      when: (__lisoq_ramdisk_mount is falsy) or
-            ((((__lisoq_ramdisk_mount[2] | default(0) | int) / 1048576) | round(0, 'ceil') | int)
-             < (__lisoq_ramdisk_size_mib | int))
+      when: (__lisoq_ramdisk_mount is falsy) or ((__lisoq_ramdisk_cur_mib | int) < (__lisoq_ramdisk_size_mib | int))
   when: (lisoq_ramdisk_enable | bool)
 
 # Files of the role (ISO, QEMU archives, uefi.bin) are kept in a private subdirectory: the ramdisk path
 # is world-writable (tmpfs root, /tmp fallback) and existing files are reused on re-runs, so another
 # local user could otherwise plant a binary or an ISO there. See upload_files.yml.
+# Static QEMU runs in its data directory (BIOS, keymaps): lisoq_qemu_static_custom_relative_dir inside the
+# work directory, with or without leading/trailing slashes.
 - name: Set the work directory of the role
   set_fact:
     __lisoq_work_dir: '{{ __lisoq_ramdisk_dir }}/lisoq'
+    __lisoq_static_data_dir: >-
+      {{ __lisoq_ramdisk_dir }}/lisoq/{{ lisoq_qemu_static_custom_relative_dir | default('', true)
+         | regex_replace('^/+|/+$', '') | default('share/qemu', true) }}
 
 # QEMU command line: lisoq_qemu_args from the user plus the options added by the role.
 
@@ -315,9 +362,10 @@
                | difference(lisoq_qemu_exclude_disk) | sort | list) }}
 
 # A disk is in use by the host if it or anything on it is mounted or used as swap, if an active
-# md array, LVM volume, dm-crypt/multipath device sits on it (they write to the disk even when not
-# mounted, e.g. an md resync), or if it belongs to an imported ZFS pool (lsblk shows no mountpoint
-# for ZFS). Writing to such a disk from QEMU at the same time corrupts it.
+# md array, LVM volume, dm-crypt/multipath or bcache device sits on it (they write to the disk even
+# when not mounted, e.g. an md resync), or if it belongs to an imported ZFS pool or a mounted btrfs
+# filesystem (lsblk shows no mountpoint for ZFS and for the other members of a multi-device btrfs).
+# Writing to such a disk from QEMU at the same time corrupts it.
 - name: Find mount points and active devices on the selected disks
   command:
     argv:
@@ -344,6 +392,24 @@
   check_mode: false
   when: (__lisoq_qemu_disks | length > 0)
 
+# /sys/fs/btrfs/<fsid>/devices/ lists all member devices of each mounted btrfs filesystem.
+- name: List devices of mounted btrfs filesystems
+  command:
+    argv:
+      - find
+      - /sys/fs/btrfs
+      - -mindepth
+      - '3'
+      - -maxdepth
+      - '3'
+      - -path
+      - '*/devices/*'
+  register: __lisoq_btrfs_devices
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: (__lisoq_qemu_disks | length > 0)
+
 - name: Set the list of disks in use by the host
   set_fact:
     __lisoq_qemu_disk_in_use: >-
@@ -354,9 +420,13 @@
          | selectattr('stdout', 'search', '(?m)^\S+ (?!(disk|part|loop|rom)( |$))\S+')
          | map(attribute='item') | list
          + __lisoq_qemu_disk_mounts.results | default([])
-         | selectattr('stdout', 'search', '(?m)^(' ~ ((__lisoq_zpool_status.stdout | default(''))
-                      | regex_findall('/dev/([A-Za-z0-9._-]+)') | map('regex_escape') | join('|')
-                      | default('(?!)', true)) ~ ') ')
+         | selectattr('stdout', 'search', '\n\S+ disk( |$)')
+         | map(attribute='item') | list
+         + __lisoq_qemu_disk_mounts.results | default([])
+         | selectattr('stdout', 'search', '(?m)^(' ~ ((((__lisoq_zpool_status.stdout | default(''))
+                      | regex_findall('/dev/([A-Za-z0-9._-]+)'))
+                      + ((__lisoq_btrfs_devices.stdout_lines | default([])) | map('basename') | list))
+                      | map('regex_escape') | join('|') | default('(?!)', true)) ~ ') ')
          | map(attribute='item') | list)
          | unique }}
 
@@ -364,7 +434,7 @@
   fail:
     msg: >-
       Disks {{ __lisoq_qemu_disk_in_use | join(', ') }} from lisoq_qemu_disk are in use by the host (mounted, swap,
-      an active md array / LVM / dm device, or an imported ZFS pool). Unmount/stop them first
+      an active md array / LVM / dm / bcache device, an imported ZFS pool or a mounted btrfs). Unmount/stop them first
       (e.g. umount, swapoff, mdadm --stop --scan, vgchange -an, zpool export), remove them from
       lisoq_qemu_disk, or set lisoq_qemu_disk_allow_in_use to true.
   when: (not __lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_in_use | length > 0) and
@@ -372,25 +442,21 @@
 
 - name: Exclude autodetected disks in use by the host
   set_fact:
-    __lisoq_qemu_disks: '{{ __lisoq_qemu_disks | difference(__lisoq_qemu_disk_in_use) }}'
+    __lisoq_qemu_disks: "{{ __lisoq_qemu_disks | reject('in', __lisoq_qemu_disk_in_use) | list }}"
   when: (__lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_in_use | length > 0) and
         (not lisoq_qemu_disk_allow_in_use | bool)
 
 - name: Report disks excluded from QEMU
   debug:
     msg: >-
-      Disks in use by the host (mounted, swap, active md/LVM/dm, imported ZFS) are not passed to QEMU:
+      Disks in use by the host (mounted, swap, active md/LVM/dm/bcache, imported ZFS, mounted btrfs) are not passed to QEMU:
       {{ __lisoq_qemu_disk_in_use | join(", ") }}. To pass them, stop what uses them first
       (e.g. mdadm --stop --scan, vgchange -an, zpool export) and re-run the role.
   when: (__lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_in_use | length > 0) and
         (not lisoq_qemu_disk_allow_in_use | bool)
 
-- name: Report that QEMU gets no disks
-  debug:
-    msg: 'No disks are passed to QEMU (see lisoq_qemu_disk and the messages above).'
-  when: (__lisoq_qemu_disks | length == 0)
-
 # lsblk instead of ansible_devices: lisoq_qemu_disk may also list partitions or other block devices.
+# Output: size in bytes, read-only flag.
 - name: Find the size of the selected disks
   command:
     argv:
@@ -399,17 +465,45 @@
       - -d
       - -n
       - -o
-      - SIZE
+      - SIZE,RO
       - '/dev/{{ item }}'
   loop: '{{ __lisoq_qemu_disks }}'
   register: __lisoq_qemu_disk_sizes
   changed_when: false
   check_mode: false
 
+# QEMU cannot open them read-write (e.g. an empty card reader or IPMI virtual floppy), and then does not start.
+- name: Find empty and read-only disks
+  set_fact:
+    __lisoq_qemu_disk_unusable: >-
+      {{ __lisoq_qemu_disk_sizes.results | default([])
+         | rejectattr('stdout', 'match', '^\s*[1-9][0-9]*\s+0\s*$')
+         | map(attribute='item') | list }}
+
+- name: Exclude autodetected empty and read-only disks
+  set_fact:
+    __lisoq_qemu_disks: "{{ __lisoq_qemu_disks | reject('in', __lisoq_qemu_disk_unusable) | list }}"
+  when: (__lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_unusable | length > 0)
+
+- name: Report empty and read-only disks
+  debug:
+    msg: >-
+      {{ (__lisoq_qemu_disk_autodetect | bool)
+         | ternary('Empty or read-only block devices are not passed to QEMU: ',
+                   'QEMU may fail to open these empty or read-only block devices from lisoq_qemu_disk: ') }}
+      {{- __lisoq_qemu_disk_unusable | join(', ') }}
+  when: (__lisoq_qemu_disk_unusable | length > 0)
+
+- name: Report that QEMU gets no disks
+  debug:
+    msg: 'No disks are passed to QEMU (see lisoq_qemu_disk and the messages above).'
+  when: (__lisoq_qemu_disks | length == 0)
+
 - name: Detect disks larger than 2 TiB
   set_fact:
     __lisoq_qemu_disk_large: >-
-      {{ __lisoq_qemu_disk_sizes.results | default([]) | map(attribute='stdout') | map('trim') | map('int')
+      {{ __lisoq_qemu_disk_sizes.results | default([]) | selectattr('item', 'in', __lisoq_qemu_disks)
+         | map(attribute='stdout') | map('split') | map('first') | map('int')
          | select('gt', 2 * 1024 * 1024 * 1024 * 1024) | list | length > 0 }}
 
 # UEFI is opt-in: SeaBIOS sees disks larger than 2 TiB as well (the 2 TiB limit is MBR's), and many ISOs
@@ -436,7 +530,7 @@
 # uefi.bin is extracted from lisoq_qemu_static_custom_uefi_url in upload_files.yml (same condition).
 - name: Add UEFI firmware to qemu_args.
   set_fact:
-    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -bios {{ __lisoq_work_dir }}/uefi.bin'
+    __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -bios {{ (__lisoq_work_dir ~ "/uefi.bin") | quote }}'
   when: (__lisoq_qemu_uefi | bool)
 
 # Disks go to the IDE bus as before while they fit: the 'pc' machine has 4 IDE slots and -cdrom takes one.

@@ -29,6 +29,8 @@ Installed packages on target hosts:
     
 ansible-core 2.15 or newer on the control node (tested with 2.15 and 2.19).
 For EL7 targets use ansible-core 2.15 or 2.16: newer versions do not support its Python.
+On EL8 and newer only the static QEMU (`lisoq_qemu_static_custom_enable: true`) can be used: there is no
+`qemu-system-x86` package, and their `qemu-kvm` supports neither the `pc` machine nor IDE disks.
 
 Ansible collection on the control node:
   - `ansible.posix` >= 1.5.0 (`ansible-galaxy collection install ansible.posix`)
@@ -36,7 +38,10 @@ Ansible collection on the control node:
 Installed packages on the control node (Ansible):
   - rsync
   - sshpass  
-If you use password login to target hosts via `ssh`
+If you use password login to target hosts via `ssh`.
+The local files (`lisoq_iso_file_local`, `lisoq_qemu_static_custom_local`) are then uploaded with `rsync` + `sshpass`
+as the user Ansible logs in as. The password must be set in a variable (`ansible_password` or `ansible_ssh_pass`):
+a password typed with `--ask-pass` is not visible to the role.
 
 ## Variables
 
@@ -62,6 +67,7 @@ URL location with the statically compiled QEMU archive(tar.gz).
 
     lisoq_qemu_static_custom_relative_dir: '/share/qemu/'
 Relative path inside the statically compiled QEMU archive to auxiliary files (BIOS, keyboard layout etc).
+Leading and trailing slashes are optional; empty means `share/qemu`.
 
     lisoq_qemu_static_custom_uefi_url: 'https://support.org.ua/Soft/vKVM/orig/uefi.tar.gz'
 UEFI firmware archive (`uefi.bin`) used with `lisoq_qemu_uefi: true`.
@@ -106,8 +112,9 @@ List of block disk devices to connect to QEMU. By default, the role passes all b
 
     lisoq_qemu_disk_allow_in_use: false
 Disks that are in use by the host are not passed to QEMU, because writing to them from QEMU at the same time corrupts them:
-the disk or anything on it is mounted or used as swap, an active md array, LVM volume or dm-crypt/multipath device sits on it
-(they write to the disk even when not mounted, e.g. an md resync), or it belongs to an imported ZFS pool.
+the disk or anything on it is mounted or used as swap, an active md array, LVM volume, dm-crypt/multipath or bcache device
+sits on it (they write to the disk even when not mounted, e.g. an md resync), or it belongs to an imported ZFS pool or to a
+mounted btrfs filesystem (also the members of a multi-device btrfs that lsblk shows without a mount point).
 Autodetected disks in use are skipped with a message; if such a disk is listed explicitly in `lisoq_qemu_disk`, the role fails.
 Set to `true` to pass them anyway (at your own risk).
 Rescue systems often assemble md arrays (and activate LVM) automatically: stop them first (`mdadm --stop --scan`,
@@ -162,7 +169,7 @@ Use (and create) RAM-disk partitions on the target system (before running QEMU).
 
     lisoq_ramdisk_path: '/mnt'
 The preferred path for the RAM-disk partition. The role keeps its files (ISO, QEMU archives) in the `lisoq` subdirectory of the chosen path
-(mode 0700, owned by the user the role runs as, or by `ansible_user` when files are uploaded with a password).
+(mode 0700, owned by the user the role runs as, or by the SSH login user when files are uploaded with a password).
 
     lisoq_ramdisk_another_path: '/tmp'
 The alternative path for the RAM-disk partition, used when `lisoq_ramdisk_path` is already mounted with another filesystem

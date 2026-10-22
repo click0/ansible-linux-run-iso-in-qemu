@@ -1,6 +1,7 @@
 ---
 __package: yum
-__var_cache_package_path: '/var/cache/{{ __package }}'
+# EL8+ use dnf; /var/cache/yum does not exist there.
+__var_cache_package_path: "/var/cache/{{ 'dnf' if (ansible_distribution_major_version | int >= 8) else 'yum' }}"
 __ramdisk_package_default_size: "{{ (lisoq_ramdisk_package_size | int < 100) | ternary('300', lisoq_ramdisk_package_size) }}"
 
 __need_ram: '300'

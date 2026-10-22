@@ -10,6 +10,9 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ### Changed
 
+- Disks under an active bcache device and all members of a mounted multi-device btrfs filesystem are treated as in
+  use (before, only the btrfs member shown with a mount point was).
+
 - Autodetected disks are passed to QEMU in name order (before: in the order the kernel listed them, which could
   change between runs). ZFS zvols (`zd*`) and `bcache*` devices are excluded from autodetection.
 
@@ -17,6 +20,33 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
   (QEMU's VNC with `lisoq_qemu_vnc_type: share` also listens on IPv6).
 
 ### Fixed
+
+- EL8/EL9: the package cache ramdisk used `/var/cache/yum` (dnf uses `/var/cache/dnf`), the firewall step installed
+  `iptables-services` (EPEL only), and `lisoq_qemu_install` failed on the missing `qemu-system-x86` package.
+  Now the right paths/packages are used and `lisoq_qemu_install` fails early with a hint to use the static QEMU.
+
+- Re-running while the VM is up no longer fails the "QEMU need more RAM" check (the free RAM is used by the running
+  VM, which is not restarted).
+- `lisoq_qemu_static_custom_relative_dir` without a leading slash (e.g. `share/qemu`) or empty broke the static
+  QEMU start (keymaps not found); slashes are now optional and empty means `share/qemu`. The static QEMU binary,
+  `-L` and `-bios` paths are quoted.
+- Check mode no longer uploads `lisoq_qemu_static_custom_local` to the target.
+- Autodetected empty or read-only block devices (e.g. an empty card reader or IPMI virtual floppy) are no longer
+  passed to QEMU, which could not open them and did not start.
+- Excluding disks in use no longer changes the order of the remaining disks.
+- `lisoq_ramdisk_size` counts towards the required RAM only when `lisoq_ramdisk_enable` is set.
+- Ramdisk paths with spaces fail with a clear message (`ansible.posix.mount` cannot remount them).
+
+- With `ansible_become: true` in the inventory the address of the Ansible host was not whitelisted: the inventory
+  variable overrode the task's `become: false`, and sudo removed `SSH_CONNECTION`.
+- Password-based uploads ran `rsync` via sudo on the control node when the play used become (failed without
+  passwordless local sudo), logged in as `root` when the user came from `remote_user`/`-u` instead of
+  `ansible_user`, and broke on an IPv6 `ansible_host`.
+
+- EL7 (util-linux 2.23): `findmnt` has no `--mountpoint` and `-b`, and its error was read as "not mounted".
+  A re-run with `lisoq_ramdisk_package_enable` failed ("Device or resource busy"), `lisoq_ramdisk_package_purge`
+  did nothing, a disk mounted on `lisoq_ramdisk_path` itself was not detected, and an existing tmpfs was not grown.
+  The role now reads the whole mount table and takes tmpfs sizes from `stat -f`.
 
 - Changing the port settings while the QEMU of the role is running (it is not restarted) no longer opens the
   ports it still listens on: they stay in the firewall ACL until it is stopped.
