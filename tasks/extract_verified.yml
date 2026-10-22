@@ -1,8 +1,9 @@
 ---
 
-# Extract a verified archive (__lisoq_archive, on the target) into the work directory once per archive
-# content: the marker file keeps the sha256 of the archive that was extracted, so a new archive (e.g.
-# after a changed checksum) is extracted again, and files from an unverified archive are replaced.
+# Extract an archive (__lisoq_archive, on the target; verified first when checksums are on) into the work
+# directory once per archive content: the marker file keeps the sha256 of the archive that was extracted, so
+# a new archive (e.g. a new upload or after a changed checksum) is extracted again, and files from an
+# unverified archive are replaced.
 # __lisoq_archive_new: the archive was downloaded or uploaded again in this run (e.g. a damaged copy was
 # replaced), so it is extracted again too.
 - name: 'Calculate the sha256 of {{ __lisoq_archive | basename }}'
