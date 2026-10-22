@@ -15,6 +15,9 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
   to add the IPv4 address to `lisoq_firewall_acl_ipv4_white`; README documents the IPv4-only forwarding.
 - The firewall failure "IPv6 is enabled, but 'ip6tables -S INPUT' failed" showed an empty reason when `ip6tables`
   could not be run at all.
+- With whitelists that do not contain `127.0.0.0/8`, the ACL also dropped connections from the server itself, so
+  the VNC port (which listens on 127.0.0.1 only with the default `lisoq_qemu_vnc_type: local`) could not be reached
+  even through an SSH tunnel. Loopback connections to the QEMU ports are now always allowed.
 
 ## [1.6.0] - 2026-10-22
 
