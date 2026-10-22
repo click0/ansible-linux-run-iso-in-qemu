@@ -228,9 +228,10 @@
     # Extract archive
     # Archives packed with a './' entry (both default ones) would otherwise give the work directory the owner
     # and mode stored in the archive (e.g. 0755 or the packing user's uid).
-    # Without checksums an archive is extracted once ('creates'), straight from the URL. With checksums it is
-    # downloaded to the work directory (get_url verifies it) or verified after the upload, and extracted by
-    # extract_verified.yml, so the extracted files come from the verified archive.
+    # Without checksums an archive from a URL is extracted once ('creates'), straight from the URL. With checksums
+    # it is downloaded to the work directory (get_url verifies it) and extracted by extract_verified.yml, so the
+    # extracted files come from the verified archive. The uploaded local archive is always extracted by
+    # extract_verified.yml (verified first with checksums): again whenever its content changes, as before 1.4.0.
 
     - name: Calculate the checksum of 'lisoq_qemu_static_custom_local'
       ansible.builtin.stat:
@@ -250,23 +251,12 @@
         (__lisoq_static_stat.stat is defined) and (not (ansible_check_mode and not __lisoq_static_stat.stat.exists))
         and ((__lisoq_static_stat.stat.checksum | default('')) != (__lisoq_checksum_static.split(':', 1)[1] | lower))
 
-    - name: Unarchive file 'lisoq_qemu_static_custom_local'.
-      ansible.builtin.unarchive:
-        src: '{{ __lisoq_work_dir }}/{{ __lisoq_static_local | basename }}'
-        dest: '{{ __lisoq_work_dir }}'
-        remote_src: true
-        extra_opts: '{{ [] if (__lisoq_static_local is search("[.]zip$")) else ["--no-same-owner", "--no-overwrite-dir"] }}'
-        creates: '{{ __lisoq_work_dir }}/qemu-system-x86_64'
-      # In check mode the archive may not have been uploaded.
-      ignore_errors: '{{ ansible_check_mode }}'
-      when: (__lisoq_static_local is truthy) and (__lisoq_checksum_static is falsy)
-
-    - name: Extract the verified 'lisoq_qemu_static_custom_local'.
+    - name: Extract 'lisoq_qemu_static_custom_local'.
       include_tasks: extract_verified.yml
       vars:
         __lisoq_archive: '{{ __lisoq_work_dir }}/{{ __lisoq_static_local | basename }}'
         __lisoq_archive_new: '{{ (__lisoq_upload_static is changed) or (__lisoq_sync_static is changed) }}'
-      when: (__lisoq_static_local is truthy) and (__lisoq_checksum_static is truthy)
+      when: (__lisoq_static_local is truthy)
 
     - name: Download file 'lisoq_qemu_static_custom_uefi_url' (checksum)
       ansible.builtin.get_url:

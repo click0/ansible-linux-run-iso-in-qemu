@@ -27,6 +27,10 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ### Fixed
 
+- A new `lisoq_qemu_static_custom_local` archive (same file name) was uploaded but not extracted: since 1.4.0 the
+  archive was extracted only once (`creates`), so the old QEMU kept running. It is extracted again whenever its
+  content changes, as in 1.0.3 (a marker keeps the sha256 of the extracted archive).
+
 - EL8/EL9: the package cache ramdisk used `/var/cache/yum` (dnf uses `/var/cache/dnf`), the firewall step installed
   `iptables-services` (EPEL only), and `lisoq_qemu_install` failed on the missing `qemu-system-x86` package.
   Now the right paths/packages are used and `lisoq_qemu_install` fails early with a hint to use the static QEMU.
