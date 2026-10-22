@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y.Z` git tags
 (the tag is the version imported by Ansible Galaxy).
 
+## [Unreleased]
+
+### Fixed
+
+- If Ansible connects over IPv6, only that IPv6 address was whitelisted, but QEMU forwards the SSH/RDP ports over
+  IPv4 only, so they stayed unreachable from the control node without any hint. The role now prints a message
+  to add the IPv4 address to `lisoq_firewall_acl_ipv4_white`; README documents the IPv4-only forwarding.
+- The firewall failure "IPv6 is enabled, but 'ip6tables -S INPUT' failed" showed an empty reason when `ip6tables`
+  could not be run at all.
+
 ## [1.6.0] - 2026-10-22
 
 ### Added
@@ -246,6 +256,7 @@ First release after 1.0.3. Versions 1.0.4, 1.1.0 and 1.2.0 were never tagged; th
 
 ## [1.0.0] - 2022-09-20
 
+[Unreleased]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.6.0...HEAD
 [1.6.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.5.0...1.6.0
 [1.5.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.4.0...1.5.0
 [1.4.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.2.1...1.4.0
