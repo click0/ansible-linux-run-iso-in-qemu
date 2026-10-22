@@ -24,7 +24,8 @@
   fail:
     msg: >-
       IPv6 is enabled on this host, but 'ip6tables -S INPUT' failed: {{ __lisoq_ip6tables_check.stderr
-      | default(__lisoq_ip6tables_check.msg | default('')) }}. The QEMU ports would stay open over IPv6.
+      | default('', true) | default(__lisoq_ip6tables_check.msg | default(''), true) }}. The QEMU ports would stay
+      open over IPv6.
       Fix ip6tables or set lisoq_firewall_acl_enable: false.
   when: (__lisoq_ip6tables_check.rc != 0) and (__lisoq_ipv6_kernel.stat.exists)
 

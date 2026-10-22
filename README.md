@@ -90,7 +90,8 @@ External port for forwarding VNC to internal QEMU port `5901`
     lisoq_qemu_vnc_type: 'local'
 The variable controls how QEMU will "listen" for VNC connections.
 The value of the `local` variable is to listen only on `localhost`.
-The value of the `share` variable is to listen on all IPs.
+The value of the `share` variable is to listen on all IPs (IPv6 too with newer QEMU, e.g. 10.0; the static
+QEMU 2.2 listens on IPv4 only).
 
     lisoq_qemu_install: false
 Install QEMU from the package repository.
@@ -230,6 +231,9 @@ closes them again until the role is re-run. Other nftables rulesets that drop th
 Also allow the address the Ansible control node connects from, as seen by the server
 (the client IP from `SSH_CONNECTION`). If it cannot be detected (e.g. a local connection), only the
 whitelists below are used and a message is printed.
+QEMU forwards the SSH and RDP ports over IPv4 only (its user networking takes no IPv6 address for them), so if
+Ansible connects over IPv6, add the IPv4 address you will connect from to `lisoq_firewall_acl_ipv4_white`
+(the role prints a message in this case).
 
     lisoq_firewall_acl_ipv4_white:
       - '127.0.0.0/8'
