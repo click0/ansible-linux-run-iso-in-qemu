@@ -27,6 +27,10 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ### Fixed
 
+- With `lisoq_qemu_args` overridden without `-daemonize`, the QEMU start task never finished (QEMU stayed in the
+  foreground). `-daemonize` is now added when it is missing.
+- On a minimal EL8/EL9 install the static QEMU (the only QEMU there) could not be extracted: `tar` is not part of
+  it. `tar` (and `unzip` for `.zip` archives) is now installed when the role extracts the QEMU or UEFI archive.
 - A new `lisoq_qemu_static_custom_local` archive (same file name) was uploaded but not extracted: since 1.4.0 the
   archive was extracted only once (`creates`), so the old QEMU kept running. It is extracted again whenever its
   content changes, as in 1.0.3 (a marker keeps the sha256 of the extracted archive).

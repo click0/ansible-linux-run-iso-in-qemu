@@ -246,7 +246,8 @@ Default white list for IPv6 networks.
     -vga std
     -daemonize
     '
-List of required command line arguments to run QEMU.
+List of required command line arguments to run QEMU. `-daemonize` is added if it is missing (without it QEMU
+would stay in the foreground and the role would never finish).
 
 ## Workflow
 

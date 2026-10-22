@@ -18,6 +18,16 @@
   ignore_errors: '{{ ansible_check_mode }}'
   when: (__lisoq_qemu_package | bool)
 
+# The static QEMU and UEFI archives are extracted on the target: tar is not in a minimal EL8/EL9 install.
+- name: '{{ ansible_os_family }} | Install tar (and unzip) for the QEMU archives'
+  ansible.builtin.yum:
+    name: >-
+      {{ ['tar'] + (['unzip'] if (([__lisoq_static_local, __lisoq_static_url]
+                                    + ([lisoq_qemu_static_custom_uefi_url] if (__lisoq_qemu_uefi | bool) else []))
+                                   | select('search', '[.]zip$') | list) else []) }}
+    state: present
+  when: (__lisoq_static_local is truthy) or (__lisoq_static_url is truthy) or (__lisoq_qemu_uefi | bool)
+
 - name: '{{ ansible_os_family }} | Install rsync'
   ansible.builtin.yum:
     name:
