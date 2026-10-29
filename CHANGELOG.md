@@ -10,6 +10,8 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ### Added
 
+- AlmaLinux 8 and 9 in the supported platforms (meta, README), as the successor of CentOS; the role runs on it
+  as on CentOS, through the RedHat OS family. EL7 stays supported.
 - CI on GitHub Actions (`.github/workflows/ci.yml`), in place of the empty `.travis.yml`: ansible-lint, and a
   syntax check on ansible-core 2.15, 2.16 and the current release.
 - `tests/syntax-check.sh`: the syntax check of `tests/test.yml` (until now empty) and of every task file, the
