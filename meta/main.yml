@@ -16,6 +16,11 @@ galaxy_info:
         - '7'
         - '8'
         - '9'
+    # The successor of CentOS: an EL rebuild, handled as the RedHat OS family like CentOS.
+    - name: 'AlmaLinux'
+      versions:
+        - '8'
+        - '9'
   galaxy_tags:
     - linux
     - system

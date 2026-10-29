@@ -1,34 +1,35 @@
 ---
 
 - name: If lisoq_ramdisk_package_enable enabled
+  when: (lisoq_ramdisk_package_enable | bool) and (not __lisoq_ramdisk_package_mounted | bool)
   block:
 
     # ansible_mounts skips tmpfs, so a ramdisk left by a previous run is only visible to findmnt
     # (no --mountpoint: util-linux 2.23 on EL7 does not have it).
     - name: 'Check mounted path {{ __var_cache_package_path }}'
-      command: findmnt -n -r -o TARGET
+      ansible.builtin.command: findmnt -n -r -o TARGET
       register: __lisoq_package_findmnt
       changed_when: false
       check_mode: false
 
     - name: 'Remember that {{ __var_cache_package_path }} is already mounted'
-      set_fact:
+      ansible.builtin.set_fact:
         __lisoq_ramdisk_package_mounted: true
       when: __var_cache_package_path in __lisoq_package_findmnt.stdout_lines
 
     - name: 'Calculate the *raw* size of the directory {{ __var_cache_package_path }}'
-      command: du -sk {{ __var_cache_package_path }}
+      ansible.builtin.command: du -sk {{ __var_cache_package_path }}
       register: '__var_cache_package_path_size_raw' # in KiBytes!
       changed_when: false
       check_mode: false
 
     - name: 'Calculate the size of the directory {{ __var_cache_package_path }}'
-      set_fact:
+      ansible.builtin.set_fact:
         __var_cache_package_path_size: '{{ (__var_cache_package_path_size_raw.stdout.split()[0] | int > 10000) |
           ternary(__var_cache_package_path_size_raw.stdout.split()[0], __ramdisk_package_default_size) }}'
 
     - name: 'Copy files from directory {{ __var_cache_package_path }} to {{ __var_cache_package_path }}.old'
-      copy:
+      ansible.builtin.copy:
         src: '{{ __var_cache_package_path }}/'
         dest: '{{ __var_cache_package_path }}.old'
         remote_src: true
@@ -47,7 +48,7 @@
         mode: '0755'
 
     - name: Calculate the size of the ram-disk partition for packages.
-      set_fact:
+      ansible.builtin.set_fact:
         __lisoq_ramdisk_package_size: >-
           {{ lisoq_ramdisk_package_size if (lisoq_ramdisk_package_size is truthy)
              else ((((__var_cache_package_path_size | int) / 1024)|int) + __ramdisk_package_default_size|int)|int }}
@@ -62,7 +63,7 @@
       when: (lisoq_ramdisk_package_enable | bool)
 
     - name: 'Copy files from directory {{ __var_cache_package_path }}.old to {{ __var_cache_package_path }}'
-      copy:
+      ansible.builtin.copy:
         src: '{{ __var_cache_package_path }}.old/'
         dest: '{{ __var_cache_package_path }}'
         remote_src: true
@@ -74,4 +75,3 @@
       ansible.builtin.file:
         path: '{{ __var_cache_package_path }}.old'
         state: absent
-  when: (lisoq_ramdisk_package_enable | bool) and (not __lisoq_ramdisk_package_mounted | bool)

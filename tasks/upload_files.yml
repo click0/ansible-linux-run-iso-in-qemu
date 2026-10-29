@@ -6,7 +6,7 @@
 # The user Ansible logs in as (also when it comes from remote_user, -u or ~/.ssh/config). Local files are uploaded
 # as this user, and a work directory it owns (left by such a run) is accepted in every mode.
 - name: Find the SSH login user
-  command: id -un
+  ansible.builtin.command: id -un
   become: false
   vars:
     ansible_become: false
@@ -18,7 +18,7 @@
 # The password must be in an inventory variable: a password typed with --ask-pass is not visible to the role.
 # Without a port variable ssh picks the port itself (~/.ssh/config or 22), as it does for Ansible.
 - name: Collect SSH connection settings for uploads
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_ssh_host: "{{ ansible_ssh_host | default(ansible_host) | default(inventory_hostname) }}"
     __lisoq_ssh_port: "{{ ansible_ssh_port | default(ansible_port) | default('') }}"
     __lisoq_ssh_user: "{{ __lisoq_login_user.stdout }}"
@@ -28,14 +28,14 @@
 
 # An IPv6 address must be in brackets in rsync's host:path.
 - name: Format the target host for rsync
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_rsync_host: "{{ ('[' ~ __lisoq_ssh_host ~ ']') if (':' in __lisoq_ssh_host) else __lisoq_ssh_host }}"
   when: (__lisoq_iso_local is truthy) or (__lisoq_static_local is truthy)
 
 # Local files are uploaded as the SSH login user without become (sudo on the target may need a password,
 # which rsync cannot give), so the work directory belongs to it.
 - name: Choose the owner of the work directory
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_work_dir_owner: >-
       {{ __lisoq_ssh_user if ((__lisoq_iso_local is truthy) or (__lisoq_static_local is truthy))
          else ansible_user_id }}
@@ -50,7 +50,7 @@
   register: __lisoq_work_dir_stat
 
 - name: Refuse a work directory that others could have prepared
-  fail:
+  ansible.builtin.fail:
     msg: >-
       {{ __lisoq_work_dir }} exists but is not a directory owned by
       {{ [ansible_user_id, __lisoq_login_user.stdout] | unique | join(' or ') }} and writable only by the owner,
@@ -69,14 +69,14 @@
 
 # In check mode a new work directory is not created, so there is nothing to upload into or check.
 - name: The work directory does not exist yet (check mode)
-  debug:
+  ansible.builtin.debug:
     msg: '{{ __lisoq_work_dir }} would be created; uploads and downloads into it are not checked.'
   when: (ansible_check_mode) and (not __lisoq_work_dir_stat.stat.exists)
 
 # Checksums are verified only with lisoq_checksum_enable. Format '<algorithm>:<hex digest>'; for files
 # downloaded from a URL also '<algorithm>:<URL of a checksum file>' (as get_url accepts).
 - name: Select the checksums to verify
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_checksum_iso: >-
       {{ (lisoq_iso_file_checksum | default('', true))
          if ((lisoq_checksum_enable | bool) and ((__lisoq_iso_local is truthy) or (__lisoq_iso_remote is truthy)
@@ -90,7 +90,7 @@
          if ((lisoq_checksum_enable | bool) and (__lisoq_qemu_uefi | bool)) else '' }}
 
 - name: Check the checksum settings
-  fail:
+  ansible.builtin.fail:
     msg: >-
       lisoq_checksum_enable is true, but {{ item.var }} is {{ 'empty' if (item.value is falsy) else 'invalid' }}
       ('{{ item.value }}'). Expected '<algorithm>:<hex digest>' (md5, sha1, sha224, sha256, sha384, sha512)
@@ -123,9 +123,10 @@
   when: (not ansible_check_mode) or (__lisoq_work_dir_stat.stat.exists)
   block:
 
-    - name: Upload file 'lisoq_iso_file_local' via ssh
+    - name: Upload file 'lisoq_iso_file_local' via ssh  # noqa: command-instead-of-module
       # https://stackoverflow.com/a/71651490/12646191
-      command: >-
+      # With a password synchronize cannot log in (no sshpass); without one the next task uses it.
+      ansible.builtin.command: >-
         rsync --copy-links --times --itemize-changes --protect-args
         --rsh="sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
         {{ ('-p ' ~ __lisoq_ssh_port) if (__lisoq_ssh_port is truthy) else '' }} -l {{ __lisoq_ssh_user }}"
@@ -157,8 +158,9 @@
         ansible_become: false
       when: (__lisoq_iso_local is truthy) and (__lisoq_ssh_password | length == 0)
 
-    - name: Upload file 'lisoq_qemu_static_custom_local' via ssh.
-      command: >-
+    - name: Upload file 'lisoq_qemu_static_custom_local' via ssh.  # noqa: command-instead-of-module
+      # As above: synchronize below when there is no password.
+      ansible.builtin.command: >-
         rsync --copy-links --times --itemize-changes --protect-args
         --rsh="sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
         {{ ('-p ' ~ __lisoq_ssh_port) if (__lisoq_ssh_port is truthy) else '' }} -l {{ __lisoq_ssh_user }}"
@@ -218,7 +220,7 @@
       when: (__lisoq_checksum_iso is truthy) and ((__lisoq_iso_local is truthy) or (__lisoq_iso_remote is truthy))
 
     - name: Verify the checksum of the ISO
-      fail:
+      ansible.builtin.fail:
         msg: >-
           Checksum mismatch for {{ __lisoq_iso_stat.stat.path | default('the ISO') }}:
           {{ __lisoq_checksum_iso.split(':')[0] }} is {{ __lisoq_iso_stat.stat.checksum | default('(missing file)') }},
@@ -244,7 +246,7 @@
       when: (__lisoq_static_local is truthy) and (__lisoq_checksum_static is truthy)
 
     - name: Verify the checksum of 'lisoq_qemu_static_custom_local'
-      fail:
+      ansible.builtin.fail:
         msg: >-
           Checksum mismatch for {{ __lisoq_static_stat.stat.path }}:
           {{ __lisoq_checksum_static.split(':')[0] }} is {{ __lisoq_static_stat.stat.checksum | default('(missing file)') }},
@@ -254,7 +256,7 @@
         and ((__lisoq_static_stat.stat.checksum | default('')) != (__lisoq_checksum_static.split(':', 1)[1] | lower))
 
     - name: Extract 'lisoq_qemu_static_custom_local'.
-      include_tasks: extract_verified.yml
+      ansible.builtin.include_tasks: extract_verified.yml
       vars:
         __lisoq_archive: '{{ __lisoq_work_dir }}/{{ __lisoq_static_local | basename }}'
         __lisoq_archive_new: '{{ (__lisoq_upload_static is changed) or (__lisoq_sync_static is changed) }}'
@@ -271,7 +273,7 @@
       when: (__lisoq_qemu_uefi | bool) and (__lisoq_checksum_uefi is truthy)
 
     - name: Extract the verified 'lisoq_qemu_static_custom_uefi_url'.
-      include_tasks: extract_verified.yml
+      ansible.builtin.include_tasks: extract_verified.yml
       vars:
         __lisoq_archive: '{{ __lisoq_work_dir }}/{{ lisoq_qemu_static_custom_uefi_url | basename }}'
         __lisoq_archive_new: '{{ __lisoq_download_uefi is changed }}'
@@ -297,7 +299,7 @@
       when: (__lisoq_static_url is truthy) and (__lisoq_checksum_static is truthy)
 
     - name: Extract the verified 'lisoq_qemu_static_custom_url'.
-      include_tasks: extract_verified.yml
+      ansible.builtin.include_tasks: extract_verified.yml
       vars:
         __lisoq_archive: '{{ __lisoq_work_dir }}/{{ __lisoq_static_url | basename }}'
         __lisoq_archive_new: '{{ __lisoq_download_static is changed }}'

@@ -1,7 +1,10 @@
 ---
 
+# yum, not dnf: EL7 has no dnf, and EL7 targets need ansible-core 2.15 or 2.16 (README), where yum is a
+# module of its own; ansible-lint, run with a newer ansible-core that redirects yum to dnf, asks for dnf.
+
 - name: '{{ ansible_os_family }} | Install EPEL repository'
-  ansible.builtin.yum:
+  ansible.builtin.yum:  # noqa: fqcn[action-core]
     name:
       - epel-release
     state: present
@@ -9,7 +12,7 @@
   when: (__lisoq_qemu_package | bool)
 
 - name: '{{ ansible_os_family }} | Install qemu-system-x86'
-  ansible.builtin.yum:
+  ansible.builtin.yum:  # noqa: fqcn[action-core]
     name:
       - qemu-system-x86
       - seabios
@@ -20,7 +23,7 @@
 
 # The static QEMU and UEFI archives are extracted on the target: tar is not in a minimal EL8/EL9 install.
 - name: '{{ ansible_os_family }} | Install tar (and unzip) for the QEMU archives'
-  ansible.builtin.yum:
+  ansible.builtin.yum:  # noqa: fqcn[action-core]
     name: >-
       {{ ['tar'] + (['unzip'] if (([__lisoq_static_local, __lisoq_static_url]
                                     + ([lisoq_qemu_static_custom_uefi_url] if (__lisoq_qemu_uefi | bool) else []))
@@ -29,7 +32,7 @@
   when: (__lisoq_static_local is truthy) or (__lisoq_static_url is truthy) or (__lisoq_qemu_uefi | bool)
 
 - name: '{{ ansible_os_family }} | Install rsync'
-  ansible.builtin.yum:
+  ansible.builtin.yum:  # noqa: fqcn[action-core]
     name:
       - rsync
     state: present
@@ -38,7 +41,7 @@
 # iptables-services is not used by the role; on EL8+ it is only in EPEL. On EL9 'iptables' could also
 # resolve to iptables-legacy from EPEL, so the nft variant of the base OS is named explicitly.
 - name: '{{ ansible_os_family }} | Install iptables'
-  ansible.builtin.yum:
+  ansible.builtin.yum:  # noqa: fqcn[action-core]
     name: >-
       {{ ['iptables', 'iptables-services'] if (ansible_distribution_major_version | int < 8)
          else (['iptables'] if (ansible_distribution_major_version | int == 8) else ['iptables-nft']) }}

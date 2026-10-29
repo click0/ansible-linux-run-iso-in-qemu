@@ -36,4 +36,5 @@
     content: '{{ __lisoq_archive_stat.stat.checksum }}'
     dest: '{{ __lisoq_archive }}.extracted'
     mode: '0600'
-  when: __lisoq_archive_extract is changed
+  # Not a handler: the marker must be written in this run's flow, before the next archive is checked.
+  when: __lisoq_archive_extract is changed  # noqa: no-handler

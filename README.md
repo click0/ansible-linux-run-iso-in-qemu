@@ -22,7 +22,8 @@ To increase security for access to the system in QEMU, you can specify a whiteli
 
 ## Requirements
 
-Linux system Debian or CentOS.  
+Linux system Debian, CentOS or AlmaLinux 8 / 9 (the successor of CentOS; the role treats it as the
+RedHat OS family, like CentOS).  
 Installed packages on target hosts:
   - python3
   - python3-apt
@@ -324,6 +325,7 @@ You can override them in the playbook and inventory.
 
 - [ ] Test on a Linux LiveCD based:
     - Debian 
+    - AlmaLinux
     - Rocky Linux
     - Alpine
     - ArchLinux

@@ -1,6 +1,6 @@
 ---
 
 - name: Enable virtualization support to qemu_args.
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -enable-kvm -cpu host'
   when: (__lisoq_kvm | bool)

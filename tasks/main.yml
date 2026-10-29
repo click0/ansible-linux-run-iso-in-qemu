@@ -1,36 +1,36 @@
 ---
 
 - name: Install the minimum required software for further work.
-  include_tasks: 0-pre-install.yml
+  ansible.builtin.include_tasks: 0-pre-install.yml
 
 - name: Configure role.
-  include_tasks: 1-configure.yml
+  ansible.builtin.include_tasks: 1-configure.yml
 
 - name: Vitualisation check.
-  include_tasks: 2-virtualisation_check.yml
+  ansible.builtin.include_tasks: 2-virtualisation_check.yml
 
 - name: Configure role (Part II).
-  include_tasks: 3-configure.yml
+  ansible.builtin.include_tasks: 3-configure.yml
 
 - name: Installing new software (if needed).
-  include_tasks: 4-install.yml
+  ansible.builtin.include_tasks: 4-install.yml
 
 - name: Configure iptables.
-  include_tasks: 5-iptables.yml
+  ansible.builtin.include_tasks: 5-iptables.yml
   when: (lisoq_firewall_acl_enable | bool)
 
 - name: Remove the firewall ACL of an earlier run.
-  include_tasks: 5-iptables-remove.yml
+  ansible.builtin.include_tasks: 5-iptables-remove.yml
   when: (not lisoq_firewall_acl_enable | bool)
 
 - name: Upload files and extract (if needed).
-  include_tasks: upload_files.yml
+  ansible.builtin.include_tasks: upload_files.yml
 
 - name: Starting qemu
-  include_tasks: start_qemu.yml
+  ansible.builtin.include_tasks: start_qemu.yml
   when: (lisoq_qemu_enable | bool)
 
 - name: QEMU start is disabled
-  debug:
+  ansible.builtin.debug:
     msg: 'QEMU was not started: set lisoq_qemu_enable to true to start it.'
   when: (not lisoq_qemu_enable | bool)

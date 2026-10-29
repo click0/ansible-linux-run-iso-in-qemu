@@ -9,19 +9,19 @@
 
 # Without IPv6 in the kernel (ipv6.disable=1) ip6tables does not work; then only IPv4 rules are set.
 - name: Check whether ip6tables works
-  command: ip6tables -w -S INPUT
+  ansible.builtin.command: ip6tables -w -S INPUT
   register: __lisoq_ip6tables_check
   changed_when: false
   failed_when: false
   check_mode: false
 
 - name: Check whether the kernel has IPv6
-  stat:
+  ansible.builtin.stat:
     path: /proc/net/if_inet6
   register: __lisoq_ipv6_kernel
 
 - name: Fail if IPv6 is enabled but ip6tables does not work
-  fail:
+  ansible.builtin.fail:
     msg: >-
       IPv6 is enabled on this host, but 'ip6tables -S INPUT' failed: {{ __lisoq_ip6tables_check.stderr
       | default('', true) | default(__lisoq_ip6tables_check.msg | default(''), true) }}. The QEMU ports would stay
@@ -30,18 +30,18 @@
   when: (__lisoq_ip6tables_check.rc != 0) and (__lisoq_ipv6_kernel.stat.exists)
 
 - name: Select IP versions for the firewall rules
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_ip_versions: "{{ ['ipv4'] + ((__lisoq_ip6tables_check.rc == 0) | ternary(['ipv6'], [])) }}"
 
 - name: IPv6 is disabled
-  debug:
+  ansible.builtin.debug:
     msg: 'IPv6 is disabled on this host: only IPv4 firewall rules are set.'
   when: (__lisoq_ip6tables_check.rc != 0)
 
 # A QEMU of the role that is still running keeps the ports it was started with (a new instance is not
 # started on re-run), so they stay protected even if the port settings have changed.
 - name: Find a running QEMU of the role
-  command:
+  ansible.builtin.command:
     argv:
       - pgrep
       - -a
@@ -53,12 +53,12 @@
   check_mode: false
 
 - name: Calculate the VNC ports of the running QEMU
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_acl_vnc_running: >-
       {% for d in __lisoq_acl_qemu_running.stdout | regex_findall('-vnc [^ ]*:([0-9]+)') %}{{ 5900 + (d | int) }} {% endfor %}
 
 - name: Calculate the firewall rules
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_acl_ports_all: >-
       {{ (__lisoq_acl_ports
           + (__lisoq_acl_qemu_running.stdout | regex_findall('hostfwd=tcp:[^:]*:([0-9]+)-'))
@@ -67,20 +67,20 @@
     __lisoq_acl_cmds: "{{ ['iptables'] + (('ipv6' in __lisoq_ip_versions) | ternary(['ip6tables'], [])) }}"
 
 - name: Calculate the firewall rule tag
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_acl_tag: >-
       lisoq:{{ ((__lisoq_acl_ports_all + __lisoq_acl_ipv4_white + __lisoq_acl_ipv6_white)
                 | join(' ') | hash('sha1'))[:12] }}
 
 - name: Ports of the still running QEMU are protected too
-  debug:
+  ansible.builtin.debug:
     msg: >-
       QEMU of the role is running (PID {{ __lisoq_acl_qemu_running.stdout_lines | map('split') | map('first')
       | join(', ') }}); the firewall protects ports {{ __lisoq_acl_ports_all | join(', ') }}.
   when: (__lisoq_acl_ports_all | difference(__lisoq_acl_ports)) is truthy
 
 - name: Check whether the LISOQ_QEMU chain exists
-  command: '{{ item }} -w -S LISOQ_QEMU'
+  ansible.builtin.command: '{{ item }} -w -S LISOQ_QEMU'
   loop: '{{ __lisoq_acl_cmds }}'
   register: __lisoq_acl_chain
   changed_when: false
@@ -88,7 +88,7 @@
   check_mode: false
 
 - name: Create the LISOQ_QEMU chain
-  command: '{{ item.item }} -w -N LISOQ_QEMU'
+  ansible.builtin.command: '{{ item.item }} -w -N LISOQ_QEMU'
   loop: '{{ __lisoq_acl_chain.results }}'
   loop_control:
     label: '{{ item.item }}'
@@ -153,7 +153,7 @@
 
 # Rule numbers from the bottom up, so the numbers of the remaining rules do not change.
 - name: Remove outdated rules from the LISOQ_QEMU chain
-  shell: >-
+  ansible.builtin.shell: >-
     {{ item }} -w -S LISOQ_QEMU | sed 1d | grep -n -v -F -- '{{ __lisoq_acl_tag }}' | cut -d: -f1 | sort -rn |
     while read -r n; do {{ item }} -w -D LISOQ_QEMU "$n" || exit 1; echo "deleted rule $n"; done
   loop: '{{ __lisoq_acl_cmds }}'
@@ -175,14 +175,14 @@
 # drops everyone else. 'firewall-cmd --reload' removes the opened ports (and with the iptables backend also the
 # ACL), so the ports are closed until the role is run again.
 - name: Check whether firewalld is running
-  command: firewall-cmd --state
+  ansible.builtin.command: firewall-cmd --state
   register: __lisoq_firewalld_state
   changed_when: false
   failed_when: false
   check_mode: false
 
 - name: Open the QEMU ports in firewalld (runtime configuration)
-  shell: >-
+  ansible.builtin.shell: >-
     for p in {{ __lisoq_acl_ports_all | join(' ') }}; do
     firewall-cmd -q --query-port="$p/tcp" || { firewall-cmd -q --add-port="$p/tcp" && echo "opened $p/tcp"; } || exit 1;
     done
