@@ -1,9 +1,10 @@
 ---
 verbosity: 1
-quiet: False
-parseable: True
-use_default_rules: True
+quiet: false
+use_default_rules: true
 
 skip_list:
-  - 'risky-shell-pipe'
-  - 'role-name'
+  - "risky-shell-pipe"
+  - "role-name"
+  # The role's task names begin with the OS family ('{{ ansible_os_family }} | Install ...').
+  - "name[template]"

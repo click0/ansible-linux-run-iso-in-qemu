@@ -9,10 +9,10 @@
 
 # Variable setup.
 - name: Include OS-specific variables.
-  include_vars: "{{ ansible_os_family }}.yml"
+  ansible.builtin.include_vars: "{{ ansible_os_family }}.yml"
 
 - name: Include distribution and version-specific vars.
-  include_vars: "{{ item }}"
+  ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
     - files:
         - "{{ ansible_distribution }}-{{ ansible_distribution_major_version }}.yml"
@@ -31,7 +31,7 @@
 #   - lisoq_iso_file_remote
 #   - lisoq_iso_file_url
 - name: Resolve role settings
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_static: '{{ lisoq_qemu_static_custom_enable | bool }}'
     __lisoq_qemu_package: '{{ (lisoq_qemu_install | bool) and (not lisoq_qemu_static_custom_enable | bool) }}'
     __lisoq_static_local: >-
@@ -74,7 +74,7 @@
 # because sudo removes it from the environment. ansible_become (not only the keyword) is overridden, since an
 # inventory ansible_become: true takes precedence over 'become: false'.
 - name: Find the address of the Ansible control node as seen by the server
-  command: printenv SSH_CONNECTION
+  ansible.builtin.command: printenv SSH_CONNECTION
   become: false
   vars:
     ansible_become: false
@@ -86,7 +86,7 @@
 
 # The whitelists may also be strings ('10.0.0.0/8,192.168.1.0/24' or with spaces) or empty.
 - name: Set the firewall whitelists
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_ansible_ip: "{{ (__lisoq_ssh_connection.stdout | default('')).split() | first | default('') }}"
     __lisoq_acl_ipv4_white: >-
       {{ (lisoq_firewall_acl_ipv4_white | regex_replace(',', ' ')).split() if (lisoq_firewall_acl_ipv4_white is string)
@@ -96,7 +96,7 @@
          else (lisoq_firewall_acl_ipv6_white | default([], true) | list) }}
 
 - name: Add the address of the Ansible control node to the firewall whitelist
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_acl_ipv4_white: >-
       {{ __lisoq_acl_ipv4_white + ([__lisoq_ansible_ip ~ '/32'] if (':' not in __lisoq_ansible_ip) else []) }}
     __lisoq_acl_ipv6_white: >-
@@ -104,7 +104,7 @@
   when: (__lisoq_ansible_ip | length > 0)
 
 - name: The address of the Ansible control node is unknown
-  debug:
+  ansible.builtin.debug:
     msg: >-
       Could not detect the address the Ansible control node connects from (no SSH_CONNECTION, e.g. a local
       connection). Only lisoq_firewall_acl_ipv4_white / lisoq_firewall_acl_ipv6_white are allowed to reach
@@ -115,7 +115,7 @@
 # QEMU user networking forwards the SSH/RDP ports over IPv4 only (hostfwd does not take an IPv6 address, also
 # in QEMU 10), so the IPv6 address of the control node does not give it access to them.
 - name: The Ansible control node connects over IPv6
-  debug:
+  ansible.builtin.debug:
     msg: >-
       The Ansible control node connects over IPv6 ({{ __lisoq_ansible_ip }}), but QEMU forwards the SSH/RDP ports
       ({{ [lisoq_qemu_args_port_ssh, lisoq_qemu_args_port_rdp] | select('truthy') | join(', ') }}) over IPv4 only.
@@ -125,7 +125,7 @@
 
 # Otherwise the start tasks are all skipped and the play "succeeds" without a VM.
 - name: Check that a QEMU source is selected
-  fail:
+  ansible.builtin.fail:
     msg: >-
       lisoq_qemu_enable is true, but no QEMU is selected: set lisoq_qemu_install: true (QEMU from the package
       repository) or lisoq_qemu_static_custom_enable: true (static QEMU from lisoq_qemu_static_custom_url/_local).
@@ -134,7 +134,7 @@
 
 # EL8+ have no qemu-system-x86 package, and their qemu-kvm supports neither the 'pc' machine nor IDE disks.
 - name: Check that package QEMU is available
-  fail:
+  ansible.builtin.fail:
     msg: >-
       lisoq_qemu_install is not supported on {{ ansible_distribution }} {{ ansible_distribution_major_version }}
       (no qemu-system-x86 package). Use the static QEMU: lisoq_qemu_static_custom_enable: true.
@@ -143,18 +143,18 @@
 
 # Without -vnc QEMU opens a GTK/SDL window and fails on a headless server.
 - name: Check lisoq_qemu_vnc_type
-  fail:
+  ansible.builtin.fail:
     msg: "lisoq_qemu_vnc_type must be 'local' or 'share', got '{{ lisoq_qemu_vnc_type }}'."
   when: lisoq_qemu_vnc_type not in ['local', 'share']
 
 - name: We use fail if we do not have enough RAM
-  fail:
+  ansible.builtin.fail:
     msg: "not enough RAM!"
   when: (ansible_memory_mb.real.total < 512) or (ansible_memory_mb.real.total < (__lisoq_total_need_ram | int))
 
 # A running QEMU of the role is not restarted (start_qemu.yml), and the RAM it uses is not free.
 - name: Check whether the QEMU of the role is already running
-  command:
+  ansible.builtin.command:
     argv:
       - pgrep
       - -f
@@ -165,17 +165,18 @@
   check_mode: false
 
 - name: We use fail if we do not have enough RAM for QEMU
-  fail:
+  ansible.builtin.fail:
     msg: "QEMU need more RAM ( > 256 MiB )!"
   when: ((lisoq_qemu_ram | int) < 256 ) or
         ((ansible_memory_mb.nocache.free < 256) and (__lisoq_qemu_running_early.rc != 0))
 
-- name: if RamDISK enabled
+- name: If RamDISK enabled
+  when: (lisoq_ramdisk_enable | bool)
   block:
 
     # ansible.posix.mount cannot remount such a path (it splits the output of 'mount -v' at spaces).
     - name: Check the ramdisk paths
-      fail:
+      ansible.builtin.fail:
         msg: 'lisoq_ramdisk_path and lisoq_ramdisk_another_path must not contain spaces.'
       when: (lisoq_ramdisk_path is search('\s')) or (lisoq_ramdisk_another_path is search('\s'))
 
@@ -186,13 +187,13 @@
     # --mountpoint, no -b. In -r output spaces in paths are escaped as \x20; the last entry of a path is
     # the top mount.
     - name: List mounted filesystems
-      command: findmnt -n -r -o TARGET,FSTYPE,SOURCE
+      ansible.builtin.command: findmnt -n -r -o TARGET,FSTYPE,SOURCE
       register: __lisoq_mounts
       changed_when: false
       check_mode: false
 
     - name: Normalise the ramdisk paths
-      set_fact:
+      ansible.builtin.set_fact:
         __lisoq_ramdisk_main_target: >-
           {{ lisoq_ramdisk_path | regex_replace('(.)/+$', '\1') | replace(' ', '\x20') }}
         __lisoq_ramdisk_other_target: >-
@@ -201,7 +202,7 @@
     # *_mount: [FSTYPE, SOURCE] of the top mount on the path, [] if it is not a mount point.
     # A new tmpfs on a directory would hide the filesystems mounted below it (e.g. a server disk on /mnt/data).
     - name: Parse existing mounts of the ramdisk paths
-      set_fact:
+      ansible.builtin.set_fact:
         __lisoq_ramdisk_main_mount: >-
           {{ (__lisoq_mounts.stdout_lines | select('match', (__lisoq_ramdisk_main_target | regex_escape) ~ ' ')
               | list | last | default('')).split()[1:] }}
@@ -218,7 +219,7 @@
     # Usable: an existing tmpfs (it is only remounted), or a directory that is not a mount point and has
     # nothing mounted below it.
     - name: Choose the ramdisk path
-      set_fact:
+      ansible.builtin.set_fact:
         __lisoq_ramdisk_main_ok: >-
           {{ ((__lisoq_ramdisk_main_mount | first | default('')) == 'tmpfs')
              or ((__lisoq_ramdisk_main_mount is falsy) and (__lisoq_ramdisk_main_submounts is falsy)) }}
@@ -227,7 +228,7 @@
              or ((__lisoq_ramdisk_other_mount is falsy) and (__lisoq_ramdisk_other_submounts is falsy)) }}
 
     - name: Fail if neither ramdisk path is free or tmpfs
-      fail:
+      ansible.builtin.fail:
         msg: >-
           Cannot create the ramdisk: {{ lisoq_ramdisk_path }} and {{ lisoq_ramdisk_another_path }}
           are mounted with another filesystem or have filesystems mounted below them
@@ -236,7 +237,7 @@
       when: (not __lisoq_ramdisk_main_ok | bool) and (not __lisoq_ramdisk_other_ok | bool)
 
     - name: Remember the chosen ramdisk path
-      set_fact:
+      ansible.builtin.set_fact:
         __lisoq_ramdisk_dir: >-
           {{ (__lisoq_ramdisk_main_ok | bool) | ternary(lisoq_ramdisk_path, lisoq_ramdisk_another_path) }}
         __lisoq_ramdisk_mount: >-
@@ -244,7 +245,7 @@
 
     # Output: total blocks, free blocks, block size.
     - name: Find the size of the existing tmpfs
-      command:
+      ansible.builtin.command:
         argv:
           - stat
           - -f
@@ -257,7 +258,7 @@
       when: (__lisoq_ramdisk_mount is truthy)
 
     - name: Calculate the ramdisk size
-      set_fact:
+      ansible.builtin.set_fact:
         __lisoq_ramdisk_cur_mib: >-
           {{ (((__lisoq_ramdisk_statfs.stdout | default('0 0 0')).split()[0] | int)
               * ((__lisoq_ramdisk_statfs.stdout | default('0 0 0')).split()[2] | int) / 1048576)
@@ -269,7 +270,7 @@
              | round(0, 'ceil') | int }}
 
     - name: Calculate the new ramdisk size
-      set_fact:
+      ansible.builtin.set_fact:
         __lisoq_ramdisk_size_mib: >-
           {{ [__lisoq_ramdisk_cur_mib | int, (__lisoq_ramdisk_used_mib | int) + (lisoq_ramdisk_size | int)] | max }}
 
@@ -297,7 +298,6 @@
         state: ephemeral
       # An existing tmpfs that is large enough is left alone (a remount would report a change on every run).
       when: (__lisoq_ramdisk_mount is falsy) or ((__lisoq_ramdisk_cur_mib | int) < (__lisoq_ramdisk_size_mib | int))
-  when: (lisoq_ramdisk_enable | bool)
 
 # Files of the role (ISO, QEMU archives, uefi.bin) are kept in a private subdirectory: the ramdisk path
 # is world-writable (tmpfs root, /tmp fallback) and existing files are reused on re-runs, so another
@@ -305,7 +305,7 @@
 # Static QEMU runs in its data directory (BIOS, keymaps): lisoq_qemu_static_custom_relative_dir inside the
 # work directory, with or without leading/trailing slashes.
 - name: Set the work directory of the role
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_work_dir: '{{ __lisoq_ramdisk_dir }}/lisoq'
     __lisoq_static_data_dir: >-
       {{ __lisoq_ramdisk_dir }}/lisoq/{{ lisoq_qemu_static_custom_relative_dir | default('', true)
@@ -318,22 +318,22 @@
 # Without -daemonize QEMU stays in the foreground and the start task never returns, so it is added when
 # lisoq_qemu_args (e.g. overridden by the user) does not have it.
 - name: Start the QEMU command line with lisoq_qemu_args.
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_cmd: >-
       {{ lisoq_qemu_args }}{{ '' if (lisoq_qemu_args is search('(^|\s)-daemonize(\s|$)')) else ' -daemonize' }} -name lisoq
 
 - name: Add net user options to qemu_args. Only port {{ lisoq_qemu_args_port_ssh }}
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -net user,hostfwd=tcp::{{ lisoq_qemu_args_port_ssh }}-:{{ lisoq_iso_file_ssh_port }}'
   when: (lisoq_qemu_args_port_ssh is truthy) and (lisoq_qemu_args_port_rdp is falsy)
 
 - name: Add net user options to qemu_args. Only port {{ lisoq_qemu_args_port_rdp }}
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -net user,hostfwd=tcp::{{ lisoq_qemu_args_port_rdp }}-:{{ lisoq_qemu_args_port_rdp }}'
   when: (lisoq_qemu_args_port_ssh is falsy) and (lisoq_qemu_args_port_rdp is truthy)
 
 - name: Add net user options to qemu_args. Both ports - {{ lisoq_qemu_args_port_ssh }} and {{ lisoq_qemu_args_port_rdp }}
-  set_fact:
+  ansible.builtin.set_fact:
     # https://stackoverflow.com/a/71651490/12646191
     __lisoq_qemu_cmd: >-
       {{ __lisoq_qemu_cmd }} -net user,
@@ -346,48 +346,48 @@
 # Without forwarded ports the VM still gets the user network backend (NAT): '-net nic' alone leaves it without
 # Internet access.
 - name: Add net user options to qemu_args. No port forwarding
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -net user'
   when: (lisoq_qemu_args_port_ssh is falsy) and (lisoq_qemu_args_port_rdp is falsy)
 
 - name: Add keyboard layot option to qemu_args.
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -k en-us'
   when: (__lisoq_qemu_package | bool)
 
 - name: Add keyboard layot option to qemu_args (if using qemu-static-custom).
-  set_fact:
+  ansible.builtin.set_fact:
     # broken keymaps
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -k keymaps/common'
   when: (__lisoq_static_local is truthy) or (__lisoq_static_url is truthy)
 
 - name: Add the local ISO option to qemu_args.
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ (__lisoq_work_dir ~ "/" ~ (__lisoq_iso_local | basename)) | quote }}'
   when: (__lisoq_iso_local is truthy)
 
 - name: Add the remote ISO option to qemu_args.
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ __lisoq_iso_remote | quote }}'
   when: (__lisoq_iso_remote is truthy)
 
 - name: Add an ISO URL option to qemu_args. We will download this ISO later.
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -cdrom {{ (__lisoq_work_dir ~ "/" ~ (__lisoq_iso_url | basename)) | quote }}'
   when: (__lisoq_iso_url is truthy)
 
 - name: Add the count of CPU to qemu_args.
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -smp {{ __lisoq_qemu_cpu }}'
 
 - name: Set how much RAM to allocate to qemu_args.
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -m {{ lisoq_qemu_ram }}M'
 
 # lisoq_qemu_disk may also be a string ('sda,sdb' or 'sda sdb') and names may start with /dev/.
 # Autodetected disks are sorted, so they keep their order in QEMU between runs.
 - name: Select disks for QEMU (lisoq_qemu_disk or autodetect).
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_disk_autodetect: '{{ lisoq_qemu_disk is falsy }}'
     __lisoq_qemu_disks: >-
       {{ (((lisoq_qemu_disk | regex_replace(',', ' ')).split()) if (lisoq_qemu_disk is string)
@@ -403,7 +403,7 @@
 # filesystem (lsblk shows no mountpoint for ZFS and for the other members of a multi-device btrfs).
 # Writing to such a disk from QEMU at the same time corrupts it.
 - name: Find mount points and active devices on the selected disks
-  command:
+  ansible.builtin.command:
     argv:
       - lsblk
       - -nr
@@ -416,7 +416,7 @@
   check_mode: false
 
 - name: List devices of imported ZFS pools
-  command:
+  ansible.builtin.command:
     argv:
       - zpool
       - status
@@ -430,7 +430,7 @@
 
 # /sys/fs/btrfs/<fsid>/devices/ lists all member devices of each mounted btrfs filesystem.
 - name: List devices of mounted btrfs filesystems
-  command:
+  ansible.builtin.command:
     argv:
       - find
       - /sys/fs/btrfs
@@ -447,7 +447,7 @@
   when: (__lisoq_qemu_disks | length > 0)
 
 - name: Set the list of disks in use by the host
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_disk_in_use: >-
       {{ (__lisoq_qemu_disk_mounts.results | default([])
          | selectattr('stdout', 'search', '(?m)^\S+ \S+ \S')
@@ -467,7 +467,7 @@
          | unique }}
 
 - name: Fail if an explicitly listed disk is in use by the host
-  fail:
+  ansible.builtin.fail:
     msg: >-
       Disks {{ __lisoq_qemu_disk_in_use | join(', ') }} from lisoq_qemu_disk are in use by the host (mounted, swap,
       an active md array / LVM / dm / bcache device, an imported ZFS pool or a mounted btrfs). Unmount/stop them first
@@ -477,13 +477,13 @@
         (not lisoq_qemu_disk_allow_in_use | bool)
 
 - name: Exclude autodetected disks in use by the host
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_disks: "{{ __lisoq_qemu_disks | reject('in', __lisoq_qemu_disk_in_use) | list }}"
   when: (__lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_in_use | length > 0) and
         (not lisoq_qemu_disk_allow_in_use | bool)
 
 - name: Report disks excluded from QEMU
-  debug:
+  ansible.builtin.debug:
     msg: >-
       Disks in use by the host (mounted, swap, active md/LVM/dm/bcache, imported ZFS, mounted btrfs) are not passed to QEMU:
       {{ __lisoq_qemu_disk_in_use | join(", ") }}. To pass them, stop what uses them first
@@ -494,7 +494,7 @@
 # Default (lisoq_qemu_disk_allow_in_use: true): all disks go to QEMU, the role only warns. It does not unmount or
 # stop anything on the host.
 - name: Warn about disks in use by the host that are passed to QEMU
-  debug:
+  ansible.builtin.debug:
     msg: >-
       Disks in use by the host (mounted, swap, active md/LVM/dm/bcache, imported ZFS, mounted btrfs) are passed to QEMU
       anyway: {{ __lisoq_qemu_disk_in_use | join(", ") }}. Writing to them from the host and from the VM at the same
@@ -505,7 +505,7 @@
 # lsblk instead of ansible_devices: lisoq_qemu_disk may also list partitions or other block devices.
 # Output: size in bytes, read-only flag.
 - name: Find the size of the selected disks
-  command:
+  ansible.builtin.command:
     argv:
       - lsblk
       - -b
@@ -521,19 +521,19 @@
 
 # QEMU cannot open them read-write (e.g. an empty card reader or IPMI virtual floppy), and then does not start.
 - name: Find empty and read-only disks
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_disk_unusable: >-
       {{ __lisoq_qemu_disk_sizes.results | default([])
          | rejectattr('stdout', 'match', '^\s*[1-9][0-9]*\s+0\s*$')
          | map(attribute='item') | list }}
 
 - name: Exclude autodetected empty and read-only disks
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_disks: "{{ __lisoq_qemu_disks | reject('in', __lisoq_qemu_disk_unusable) | list }}"
   when: (__lisoq_qemu_disk_autodetect | bool) and (__lisoq_qemu_disk_unusable | length > 0)
 
 - name: Report empty and read-only disks
-  debug:
+  ansible.builtin.debug:
     msg: >-
       {{ (__lisoq_qemu_disk_autodetect | bool)
          | ternary('Empty or read-only block devices are not passed to QEMU: ',
@@ -542,12 +542,12 @@
   when: (__lisoq_qemu_disk_unusable | length > 0)
 
 - name: Report that QEMU gets no disks
-  debug:
+  ansible.builtin.debug:
     msg: 'No disks are passed to QEMU (see lisoq_qemu_disk and the messages above).'
   when: (__lisoq_qemu_disks | length == 0)
 
 - name: Detect disks larger than 2 TiB
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_disk_large: >-
       {{ __lisoq_qemu_disk_sizes.results | default([]) | selectattr('item', 'in', __lisoq_qemu_disks)
          | map(attribute='stdout') | map('split') | map('first') | map('int')
@@ -556,11 +556,11 @@
 # UEFI is opt-in: SeaBIOS sees disks larger than 2 TiB as well (the 2 TiB limit is MBR's), and many ISOs
 # (e.g. mfsbsd 12.2, the default before 1.4.0) have no UEFI boot loader, so forcing UEFI made them unbootable.
 - name: Decide whether the UEFI firmware is used.
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_uefi: '{{ lisoq_qemu_uefi | bool }}'
 
 - name: Fail if UEFI is requested without static QEMU
-  fail:
+  ansible.builtin.fail:
     msg: >-
       lisoq_qemu_uefi requires lisoq_qemu_static_custom_enable: true and lisoq_qemu_static_custom_uefi_url
       (the UEFI firmware comes from that archive).
@@ -568,7 +568,7 @@
         ((not __lisoq_qemu_static | bool) or (lisoq_qemu_static_custom_uefi_url | length == 0))
 
 - name: Hint about UEFI for disks larger than 2 TiB
-  debug:
+  ansible.builtin.debug:
     msg: >-
       A disk larger than 2 TiB is passed to QEMU. It is fully usable in BIOS mode; set lisoq_qemu_uefi: true
       only if the OS must be installed/booted in UEFI mode and the ISO supports UEFI boot.
@@ -576,7 +576,7 @@
 
 # uefi.bin is extracted from lisoq_qemu_static_custom_uefi_url in upload_files.yml (same condition).
 - name: Add UEFI firmware to qemu_args.
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -bios {{ (__lisoq_work_dir ~ "/uefi.bin") | quote }}'
   when: (__lisoq_qemu_uefi | bool)
 
@@ -585,20 +585,20 @@
 # AHCI (SATA) controllers, 6 ports each; AHCI drivers are built into Windows, Linux and FreeBSD,
 # and SeaBIOS boots from it.
 - name: Count free IDE slots.
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_ide_free: >-
       {{ 4 - (((__lisoq_iso_local is truthy) or (__lisoq_iso_remote is truthy) or (__lisoq_iso_url is truthy))
               | ternary(1, 0)) }}
 
 - name: Add a list of disk device options to qemu_args.
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }}
  -drive ''file=/dev/{{ __lisoq_qemu_disks | join(",format=raw'' -drive ''file=/dev/") }},format=raw''
 '
   when: (__lisoq_qemu_disks | length > 0) and (__lisoq_qemu_disks | length <= __lisoq_qemu_ide_free | int)
 
 - name: Add disks to qemu_args on AHCI (SATA) controllers.
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_cmd: >-
       {{ __lisoq_qemu_cmd }}
       {%- for c in range(((__lisoq_qemu_disks | length) + 5) // 6) %} -device ahci,id=lisoq_ahci{{ c }}{% endfor %}
@@ -608,16 +608,16 @@
   when: (__lisoq_qemu_disks | length > __lisoq_qemu_ide_free | int)
 
 - name: Add start VNC to qemu_args.
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -vnc 127.0.0.1:{{ __lisoq_qemu_vnc_port | int - 5900 }}'
   when: lisoq_qemu_vnc_type == 'local'
 
 - name: Add start VNC to qemu_args.
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -vnc :{{ __lisoq_qemu_vnc_port | int - 5900 }}'
   when: lisoq_qemu_vnc_type == 'share'
 
 - name: Add option to boot qemu from ISO to qemu_args.
-  set_fact:
+  ansible.builtin.set_fact:
     __lisoq_qemu_cmd: '{{ __lisoq_qemu_cmd }} -boot {{ (lisoq_qemu_boot_once_cd | bool) | ternary("once=", "") }}d'
   when: (lisoq_qemu_boot_cd | bool)

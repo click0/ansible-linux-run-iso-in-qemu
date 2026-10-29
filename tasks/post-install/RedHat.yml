@@ -5,7 +5,7 @@
 # a re-run of this role) still have room for downloads.
 # Only the tmpfs mounted by this role (source lisoq-pkgcache) is unmounted, not a mount made by someone else.
 - name: Find the source of the mount on {{ __var_cache_package_path }}
-  command: findmnt -n -r -o TARGET,SOURCE
+  ansible.builtin.command: findmnt -n -r -o TARGET,SOURCE
   register: __lisoq_package_mount_source
   changed_when: false
   check_mode: false

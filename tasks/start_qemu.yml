@@ -2,7 +2,7 @@
 
 # A second QEMU cannot open the same disks and ports, so do not start it on re-run.
 - name: Check whether QEMU is already running
-  command:
+  ansible.builtin.command:
     argv:
       - pgrep
       - -f
@@ -13,16 +13,21 @@
   check_mode: false
 
 - name: QEMU is already running, a new instance will not be started
-  debug:
+  ansible.builtin.debug:
     msg: 'QEMU is already running (PID {{ __lisoq_qemu_running.stdout_lines | join(", ") }}). Stop it to apply new settings.'
   when: __lisoq_qemu_running.rc == 0
 
 - name: Starting installed qemu
-  command: >
+  ansible.builtin.command: >
     qemu-system-x86_64 {{ __lisoq_qemu_cmd }}
+  # Reached only when no QEMU of the role is running: starting one is always a change.
+  changed_when: true
   when: (__lisoq_qemu_package | bool) and (__lisoq_qemu_running.rc != 0)
 
 - name: Starting qemu (lisoq_qemu_static_custom_url)
+  when: >-
+    ((__lisoq_static_local is truthy) or (__lisoq_static_url is truthy)) and
+    (__lisoq_qemu_running.rc != 0)
   block:
     - name: 'Create the static QEMU data directory {{ __lisoq_static_data_dir }}'
       ansible.builtin.file:
@@ -32,13 +37,11 @@
 
     # chdir: '-k keymaps/common' is relative to the data directory.
     - name: Starting qemu qemu-system-x86_64
-      command: >-
+      ansible.builtin.command: >-
         {{ (__lisoq_work_dir ~ '/qemu-system-x86_64') | quote }}
         -L {{ __lisoq_static_data_dir | quote }}
         {{ __lisoq_qemu_cmd }}
       args:
         chdir: '{{ __lisoq_static_data_dir }}'
+      changed_when: true
       ignore_errors: '{{ ansible_check_mode }}'
-  when: >-
-    ((__lisoq_static_local is truthy) or (__lisoq_static_url is truthy)) and
-    (__lisoq_qemu_running.rc != 0)

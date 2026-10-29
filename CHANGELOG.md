@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y.Z` git tags
 (the tag is the version imported by Ansible Galaxy).
 
+## [Unreleased]
+
+### Changed
+
+- The role passes ansible-lint: built-in modules by their full names (`ansible.builtin.*`), task names
+  capitalized, a block's `when` before the block. `.ansible-lint` no longer has the `parseable` key, which
+  current ansible-lint refuses. No change in what the role does.
+
 ## [1.7.1] - 2026-10-22
 
 ### Fixed
