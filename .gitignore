@@ -11,3 +11,6 @@ tmp
 *.img
 *.pub
 *.iml
+# ansible-lint cache, tests/syntax-check.sh output
+.ansible/
+tests/.syntax-check.yml

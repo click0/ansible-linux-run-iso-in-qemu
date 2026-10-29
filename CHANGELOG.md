@@ -8,6 +8,13 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ## [Unreleased]
 
+### Added
+
+- CI on GitHub Actions (`.github/workflows/ci.yml`), in place of the empty `.travis.yml`: ansible-lint, and a
+  syntax check on ansible-core 2.15, 2.16 and the current release.
+- `tests/syntax-check.sh`: the syntax check of `tests/test.yml` (until now empty) and of every task file, the
+  ones loaded with `include_tasks` too, which `--syntax-check` alone does not follow.
+
 ### Changed
 
 - The role passes ansible-lint: built-in modules by their full names (`ansible.builtin.*`), task names

@@ -1,0 +1,8 @@
+---
+# Loaded by tests/syntax-check.sh (CI) with --syntax-check: running it for real needs a rescue
+# system and is not done in CI.
+- name: Test the role linux_run_iso_in_qemu
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - role: '{{ playbook_dir }}/..'
