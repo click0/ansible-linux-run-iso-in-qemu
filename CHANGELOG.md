@@ -8,6 +8,8 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-31
+
 ### Added
 
 - AlmaLinux 8 and 9 in the supported platforms (meta, README), as the successor of CentOS; the role runs on it
@@ -295,6 +297,7 @@ First release after 1.0.3. Versions 1.0.4, 1.1.0 and 1.2.0 were never tagged; th
 
 ## [1.0.0] - 2022-09-20
 
+[1.8.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.7.1...1.8.0
 [1.7.1]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.7.0...1.7.1
 [1.7.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.6.0...1.7.0
 [1.6.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.5.0...1.6.0
