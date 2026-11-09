@@ -38,6 +38,7 @@ flowchart LR
 ## Contents
 
 - [Why](#why)
+- [Who it is for](#who-it-is-for)
 - [Quick start](#quick-start)
 - [Requirements](#requirements)
 - [How the role works](#how-the-role-works)
@@ -53,6 +54,8 @@ flowchart LR
   - [Checksums](#checksums)
 - [Example playbooks](#example-playbooks)
 - [After the run](#after-the-run)
+- [Device names: the VM and the real hardware](#device-names-the-vm-and-the-real-hardware)
+- [Console of an installed system](#console-of-an-installed-system)
 - [Good to know](#good-to-know)
 - [Tested and TODO](#tested-and-todo)
 - [License, author, contributing](#license-author-contributing)
@@ -92,6 +95,23 @@ sequenceDiagram
     You->>V: install the OS onto the disks
     You->>S: reboot the server from its disks
 ```
+
+## Who it is for
+
+The role is an **IP-KVM with virtual media, done in software**. It is for servers where the hoster gives you no
+IP-KVM (or only for an hour, on request) and no way to attach your own ISO: just a rescue system.
+
+| You want to | How the VM is booted | Typical cases |
+|---|---|---|
+| Install an OS the hoster does not offer | from an ISO | FreeBSD on a VPS or a dedicated server (mfsbsd is the default ISO); Windows from an installation or WinPE ISO, over VNC and RDP; OpenBSD, OPNsense, your own Linux image |
+| See the console of a system that is already installed | from the server's disks, without an ISO | a Proxmox host, or any server, that does not come back after an upgrade: boot loader, kernel panic, initramfs prompt, ZFS import, network settings; typing a disk encryption passphrase; checking that a fresh install boots before you leave the rescue mode |
+
+On a VPS there is usually no nested virtualization: QEMU then runs without KVM, in software emulation. An
+installation still works, only slower; on a small VPS lower `lisoq_qemu_ram`.
+
+Two things to keep in mind, both described below: the system in the VM sees
+[other device names](#device-names-the-vm-and-the-real-hardware) than on the real hardware, and a system booted
+from the disks in the VM [is the real system](#console-of-an-installed-system), with its real data.
 
 ## Quick start
 
@@ -568,9 +588,123 @@ lisoq_firewall_acl_enable: true
 | Apply new settings | stop the VM, then run the playbook again |
 | Boot the installed OS | leave the rescue mode in the hoster's panel and reboot the server |
 
-Inside the VM the OS sees emulated hardware: IDE or SATA disks and an emulated network card. The real server has
-other controllers and network cards, so configure the installed OS (network, boot loader, drivers) for the real
-hardware before you reboot the server from its disks.
+## Device names: the VM and the real hardware
+
+Inside the VM the OS sees emulated hardware, always the same. The real server has other controllers and network
+cards, so the names of the disks and of the network card differ. An OS installed in the VM must be configured for
+the **real** names before the server is rebooted from its disks, or it comes up without its disks or without network.
+
+| | In the VM | On the real server (examples) |
+|---|---|---|
+| Disks, Linux | `/dev/sda`, `/dev/sdb` ... (IDE or SATA) | `/dev/nvme0n1`, `/dev/sda`; on a KVM VPS `/dev/vda` |
+| Disks, FreeBSD | `ada0`, `ada1` ... | `nda0` or `nvd0` (NVMe), `ada0` (SATA), `da0` (SAS, RAID); on a KVM VPS `vtbd0` or `da0` |
+| Network card, Linux | `ens3` (`eth0` without predictable names) | `eno1`, `enp3s0`, `eth0` ... |
+| Network card, FreeBSD | `em0` | `igb0`, `ix0`, `em0`, `bge0`, `re0`; on a KVM VPS `vtnet0` |
+| Network card, hardware | Intel e1000, MAC `52:54:00:12:34:56` | the real chip and its real MAC |
+| Network settings | DHCP from QEMU: `10.0.2.15/24`, gateway `10.0.2.2`, DNS `10.0.2.3` | the address and gateway from the hoster |
+
+**Find the real names** in the rescue system, before or after the installation:
+
+```shell
+lsblk -d -o NAME,SIZE,MODEL                 # the disks: NVMe, SATA or virtio
+lspci -nn | grep -i -E 'ethernet|network'   # the network chip
+ip -br link                                 # the MAC address of the real card
+udevadm info -q property -p /sys/class/net/eth0 | grep ID_NET_NAME   # its name in a Linux with predictable names
+```
+
+For FreeBSD the name follows from the chip:
+
+| Network chip (from `lspci`) | FreeBSD name |
+|---|---|
+| Virtio network device (KVM VPS) | `vtnet0` |
+| Intel I210, I211, I350, 82575 / 82576 / 82580 | `igb0` |
+| Intel 82574, I217, I218, I219 | `em0` |
+| Intel X520, X540, X550 (10G) | `ix0` |
+| Intel X710, XL710 | `ixl0` |
+| Broadcom NetXtreme BCM57xx (1G) | `bge0` |
+| Realtek RTL8111, RTL8168 | `re0` |
+
+**Make the installed system independent of the names** where you can:
+
+- **Disks.** Refer to filesystems by label or UUID, not by device name: GPT labels (`/dev/gpt/...`) in the FreeBSD
+  `/etc/fstab`, `UUID=` in the Linux one (installers write it by default). ZFS finds its pool on any device name.
+- **Network, FreeBSD.** With DHCP, `ifconfig_DEFAULT="DHCP"` in `/etc/rc.conf` configures any card. With a static
+  address write the lines for the real card (`ifconfig_igb0="inet 203.0.113.10/24"`, `defaultrouter="203.0.113.1"`).
+- **Network, Linux.** Match the card by its real MAC address (netplan `match: macaddress:`, systemd-networkd
+  `[Match] MACAddress=`), or use the name that `udevadm` printed above.
+- **Windows.** A Windows installed in the VM has only started the drivers of the emulated hardware. Standard AHCI and
+  NVMe drivers are built in; for a hardware RAID controller, and for a KVM VPS (virtio-win: `viostor` or `vioscsi`,
+  `netkvm`), install the drivers of the real storage and network controllers before you leave the VM. Otherwise it
+  may stop with `INACCESSIBLE_BOOT_DEVICE` or have no network.
+
+**A wrong name is not fatal: you can always come back.** Nothing is lost by another round through the rescue mode.
+
+```mermaid
+%%{init: {"flowchart": {"wrappingWidth": 460}}}%%
+flowchart TD
+    I["install the OS in the VM"]
+    R["reboot inside the VM: it now boots<br/>the installed system from the disks"]
+    N["set the disk and network names of the real hardware,<br/>shut the VM down"]
+    B["leave the rescue mode, reboot the server"]
+    Q{{"does the server answer?"}}
+    D(["done"])
+    RS["boot the rescue mode again and<br/>run the playbook again, without an ISO"]
+    C["the VM shows the console of the installed system:<br/>fix the names, shut the VM down"]
+    I --> R --> N --> B --> Q
+    Q -- "yes" --> D
+    Q -- "no" --> RS --> C --> B
+```
+
+- **In the same run.** With the default `lisoq_qemu_boot_once_cd: true` a `reboot` inside the VM starts the freshly
+  installed system from the disks, still in the VM. Check that it boots, set the real names there and shut it down.
+- **In a second run.** If the server does not answer after the real reboot, boot the rescue mode again and run the
+  playbook again without an ISO (see [Console of an installed system](#console-of-an-installed-system)): you get the
+  console of the installed system, fix the names and reboot. Running the playbook again with the ISO works too: mount
+  the disks from the live system and edit the files.
+
+## Console of an installed system
+
+Without an ISO the VM boots what is already on the server's disks, and VNC shows its console: the boot loader menu,
+kernel messages, an initramfs or single-user prompt, the login. This is what an IP-KVM would show.
+
+```yaml
+- hosts: rescue_servers
+  roles:
+    - role: click0.linux_run_iso_in_qemu
+      vars:
+        lisoq_qemu_enable: true
+        lisoq_qemu_static_custom_enable: true
+        lisoq_iso_file_url: ''        # no ISO
+        lisoq_qemu_boot_cd: false     # boot from the first disk
+        lisoq_qemu_ram: '4096'        # what the installed system needs
+```
+
+- **It is the real system, on its real disks.** Everything it writes stays. The rescue system must not use the disks
+  at the same time: export ZFS pools, stop md arrays and LVM first (see [Disks](#disks)).
+- **The network card has another name in the VM**, so a system configured for the real card usually has no network
+  there. That is expected: work on the VNC console. If you change the configuration to get network in the VM, change
+  it back before the real reboot.
+- **A system installed in UEFI mode** may have no BIOS boot loader. If the VM finds nothing to boot, set
+  `lisoq_qemu_uefi: true`.
+- **Give it enough RAM**: the default `lisoq_qemu_ram` of 1024 MiB is small for a hypervisor or for ZFS.
+
+### A Proxmox host
+
+- **ZFS root.** The pool must not be imported in the rescue system when the VM starts (`zpool export rpool`). If the
+  rescue system imported it before and did not export it, the boot in the VM stops in the initramfs, because the
+  pool was last used by another system: `zpool import -f rpool`, then `exit`.
+- **Network.** `vmbr0` is bound to the real card (`bridge-ports eno1`), and in the VM the card is `ens3`: the host
+  has no network in the VM. For debugging this is what you want.
+- **Cluster.** QEMU user networking carries no multicast and accepts no incoming connections, so only outgoing
+  traffic to the other nodes is left, and only if you gave the host network in the VM. To be sure, block the corosync
+  ports on the rescue system before you start the VM:
+
+  ```shell
+  iptables -I OUTPUT -p udp --dport 5404:5412 -j DROP
+  ```
+
+- **Guests.** Virtual machines and containers with autostart would start inside the VM, on their real disks. To
+  prevent it, press `e` in the boot menu and add `systemd.mask=pve-guests.service` to the kernel command line.
 
 ## Good to know
 
@@ -594,6 +728,7 @@ Tested:
 - [x] Debian 11 "bullseye", freshly installed on HDD
 - [x] Debian 13 "trixie", QEMU 10 from the package
 - [x] CentOS 7, running from the LiveCD
+- [x] Windows from an ISO, with the early versions of the role
 
 To do:
 
