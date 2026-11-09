@@ -8,6 +8,13 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ## [Unreleased]
 
+### Changed
+
+- README rewritten: what the role is for, a quick start, the requirements per target system, how a run works
+  step by step, the variables grouped by topic in tables, what to do after the run and common problems, with
+  Mermaid diagrams (overview, run sequence, stages, choice of QEMU and ISO, disk selection, RAM disk path,
+  firewall ACL). The stale "no Internet inside QEMU" TODO item is gone. No change in what the role does.
+
 ## [1.8.0] - 2026-10-31
 
 ### Added
