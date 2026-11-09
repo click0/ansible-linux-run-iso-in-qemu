@@ -17,6 +17,8 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 - README: who the role is for (an IP-KVM with virtual media in software: install from an ISO, or see the console
   of an installed system), the device names in the VM and on the real hardware and how to fix them in a second
   run, and how to boot an installed system (a Proxmox host) without an ISO.
+- README: VPS named next to dedicated servers; a list of ISOs that fit the job (mfsbsd, WinPE Sergei Strelec,
+  SystemRescue, Grml, Finnix, GParted Live) and how to get into each.
 
 ## [1.8.0] - 2026-10-31
 

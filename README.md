@@ -5,8 +5,8 @@
 [![Ansible Galaxy](https://img.shields.io/badge/galaxy-click0.linux__run__iso__in__qemu-blue)](https://galaxy.ansible.com/click0/linux_run_iso_in_qemu/)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-green)](LICENSE)
 
-Install **any operating system from its own ISO** on a dedicated server that the hoster only lets you boot
-into a Linux rescue system.
+Install **any operating system from its own ISO** on a dedicated server or a VPS that the hoster only lets you
+boot into a Linux rescue system.
 
 The role starts [QEMU](https://www.qemu.org/) inside the rescue system, attaches the ISO as a CD-ROM and passes the
 **real disks** of the server to the virtual machine. You connect to the VM over SSH, VNC or RDP, run the installer
@@ -20,7 +20,7 @@ flowchart LR
     end
     OP(["You: ssh, VNC or RDP client"])
     NET(("Internet"))
-    subgraph SRV["Server booted in rescue mode (Debian or EL)"]
+    subgraph SRV["Server or VPS booted in rescue mode (Debian or EL)"]
         FW{{"iptables chain LISOQ_QEMU<br/>whitelist only"}}
         WD[("work directory<br/>ISO, static QEMU, uefi.bin")]
         VM["QEMU virtual machine<br/>booted from the ISO"]
@@ -98,13 +98,14 @@ sequenceDiagram
 
 ## Who it is for
 
-The role is an **IP-KVM with virtual media, done in software**. It is for servers where the hoster gives you no
-IP-KVM (or only for an hour, on request) and no way to attach your own ISO: just a rescue system.
+The role is an **IP-KVM with virtual media, done in software**. It is for dedicated servers and VPS where the hoster
+gives you no IP-KVM (or only for an hour, on request) and no way to attach your own ISO: just a rescue system.
 
 | You want to | How the VM is booted | Typical cases |
 |---|---|---|
-| Install an OS the hoster does not offer | from an ISO | FreeBSD on a VPS or a dedicated server (mfsbsd is the default ISO); Windows from an installation or WinPE ISO, over VNC and RDP; OpenBSD, OPNsense, your own Linux image |
+| Install an OS the hoster does not offer | from an ISO | FreeBSD on a VPS or a dedicated server (mfsbsd is the default ISO); Windows from an installation ISO or a WinPE such as Sergei Strelec, over VNC and RDP; OpenBSD, OPNsense, your own Linux image |
 | See the console of a system that is already installed | from the server's disks, without an ISO | a Proxmox host, or any server, that does not come back after an upgrade: boot loader, kernel panic, initramfs prompt, ZFS import, network settings; typing a disk encryption passphrase; checking that a fresh install boots before you leave the rescue mode |
+| Repair a system or its disks with better tools than the hoster's rescue system has | from a rescue ISO | SystemRescue, Grml or Finnix for Linux; WinPE Sergei Strelec for Windows |
 
 On a VPS there is usually no nested virtualization: QEMU then runs without KVM, in software emulation. An
 installation still works, only slower; on a small VPS lower `lisoq_qemu_ram`.
@@ -297,6 +298,22 @@ flowchart TD
 
 The first one that is set wins: local, then remote, then URL. To use your own ISO it is enough to set
 `lisoq_iso_file_local` or `lisoq_iso_file_remote`; the default URL is then ignored.
+
+**Which ISO to use.** Any bootable ISO works. Some that fit this job well:
+
+| For | ISO | How you get in |
+|---|---|---|
+| FreeBSD: installation | [mfsbsd](https://mfsbsd.vx.sk/), the default | SSH on port 1022 as `root`, password `mfsroot`; `zfsinstall` is included |
+| Windows: installation, repair, disk and password tools | [WinPE 10-8 Sergei Strelec](https://sergeistrelec.name/), or a Windows installation ISO | graphical desktop over VNC |
+| Linux: rescue, filesystem and boot loader repair, installation by hand | [SystemRescue](https://www.system-rescue.org/) | VNC console; for SSH add the boot options `rootpass=PASSWORD nofirewall` |
+| Linux: the same, Debian based | [Grml](https://grml.org/) | VNC console; the boot option `ssh=PASSWORD` starts sshd |
+| Linux: the same, small and text only | [Finnix](https://www.finnix.org/) | VNC console |
+| Partitioning | [GParted Live](https://gparted.org/livecd.php) | graphical desktop over VNC |
+
+- Boot options are typed in the boot menu of the ISO, on the VNC console.
+- WinPE Sergei Strelec is a third-party WinPE build with a large set of tools, several GB in size: give the RAM disk
+  enough room (see the [second example](#example-playbooks)) and mind the licences of the tools you use.
+- For service ISOs set `lisoq_qemu_boot_once_cd: false`, so that every reboot of the VM starts the ISO again.
 
 ### VM hardware and boot
 
