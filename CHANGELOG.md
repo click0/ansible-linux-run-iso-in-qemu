@@ -12,8 +12,8 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 - Without `pgrep` on the target (container and other minimal images have no procps) the role took a running
   QEMU for "not running": on a re-run it tried to start a second one, and the firewall did not learn the ports
-  of the running one. procps (`procps-ng` on EL) is now installed when `pgrep` does not work, and the checks
-  before the firewall rules and before the start fail instead of guessing.
+  of the running one. The role no longer needs `pgrep`: it reads the command lines from `/proc` with `sh`, `tr`
+  and `grep`, which every system has, and a check that cannot run fails the play instead of guessing.
 - In check mode on a host where the static QEMU is not extracted yet, the start task printed a failure (ignored)
   about a missing directory; it is skipped in check mode now.
 
