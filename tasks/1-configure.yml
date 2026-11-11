@@ -55,8 +55,9 @@
     __lisoq_qemu_vnc_port: '{{ (lisoq_qemu_args_port_vnc | int < 5900) | ternary(5901, lisoq_qemu_args_port_vnc | int) }}'
     # The QEMU of this role: '-name lisoq'; older role versions are recognised by the SSH port forwarding.
     # Other VMs on the host (e.g. from libvirt) do not count.
-    __lisoq_qemu_pgrep_pattern: >-
-      ^(.*/)?qemu-system-x86_64 .*(-name lisoq( |$)
+    # An extended regular expression for the command line (see qemu_running.yml).
+    __lisoq_qemu_pattern: >-
+      (.*/)?qemu-system-x86_64 .*(-name lisoq( |$)
       {%- if lisoq_qemu_args_port_ssh is truthy %}|hostfwd=tcp::{{ lisoq_qemu_args_port_ssh }}-{% endif %})
     # Firewall ports = the ports QEMU actually listens on: SSH/RDP forwarding if set, and the VNC port
     # after the same correction as below (values under 5900 mean 5901).
@@ -154,21 +155,13 @@
 
 # A running QEMU of the role is not restarted (start_qemu.yml), and the RAM it uses is not free.
 - name: Check whether the QEMU of the role is already running
-  ansible.builtin.command:
-    argv:
-      - pgrep
-      - -f
-      - '{{ __lisoq_qemu_pgrep_pattern }}'
-  register: __lisoq_qemu_running_early
-  changed_when: false
-  failed_when: false
-  check_mode: false
+  ansible.builtin.include_tasks: qemu_running.yml
 
 - name: We use fail if we do not have enough RAM for QEMU
   ansible.builtin.fail:
     msg: "QEMU need more RAM ( > 256 MiB )!"
   when: ((lisoq_qemu_ram | int) < 256 ) or
-        ((ansible_memory_mb.nocache.free < 256) and (__lisoq_qemu_running_early.rc != 0))
+        ((ansible_memory_mb.nocache.free < 256) and (__lisoq_qemu_running.rc != 0))
 
 - name: If RamDISK enabled
   when: (lisoq_ramdisk_enable | bool)

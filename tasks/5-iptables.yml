@@ -41,27 +41,18 @@
 # A QEMU of the role that is still running keeps the ports it was started with (a new instance is not
 # started on re-run), so they stay protected even if the port settings have changed.
 - name: Find a running QEMU of the role
-  ansible.builtin.command:
-    argv:
-      - pgrep
-      - -a
-      - -f
-      - '{{ __lisoq_qemu_pgrep_pattern }}'
-  register: __lisoq_acl_qemu_running
-  changed_when: false
-  failed_when: false
-  check_mode: false
+  ansible.builtin.include_tasks: qemu_running.yml
 
 - name: Calculate the VNC ports of the running QEMU
   ansible.builtin.set_fact:
     __lisoq_acl_vnc_running: >-
-      {% for d in __lisoq_acl_qemu_running.stdout | regex_findall('-vnc [^ ]*:([0-9]+)') %}{{ 5900 + (d | int) }} {% endfor %}
+      {% for d in __lisoq_qemu_running.stdout | regex_findall('-vnc [^ ]*:([0-9]+)') %}{{ 5900 + (d | int) }} {% endfor %}
 
 - name: Calculate the firewall rules
   ansible.builtin.set_fact:
     __lisoq_acl_ports_all: >-
       {{ (__lisoq_acl_ports
-          + (__lisoq_acl_qemu_running.stdout | regex_findall('hostfwd=tcp:[^:]*:([0-9]+)-'))
+          + (__lisoq_qemu_running.stdout | regex_findall('hostfwd=tcp:[^:]*:([0-9]+)-'))
           + (__lisoq_acl_vnc_running | default('', true)).split())
          | map('int') | unique | sort | map('string') | list }}
     __lisoq_acl_cmds: "{{ ['iptables'] + (('ipv6' in __lisoq_ip_versions) | ternary(['ip6tables'], [])) }}"
@@ -75,7 +66,7 @@
 - name: Ports of the still running QEMU are protected too
   ansible.builtin.debug:
     msg: >-
-      QEMU of the role is running (PID {{ __lisoq_acl_qemu_running.stdout_lines | map('split') | map('first')
+      QEMU of the role is running (PID {{ __lisoq_qemu_running.stdout_lines | map('split') | map('first')
       | join(', ') }}); the firewall protects ports {{ __lisoq_acl_ports_all | join(', ') }}.
   when: (__lisoq_acl_ports_all | difference(__lisoq_acl_ports)) is truthy
 

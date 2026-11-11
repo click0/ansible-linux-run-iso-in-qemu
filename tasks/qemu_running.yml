@@ -1,0 +1,22 @@
+---
+
+# Find the running QEMU of the role by its command line: __lisoq_qemu_running.rc is 0 if there is one, and
+# stdout has one line 'PID command line' for each.
+# /proc is read directly. pgrep and ps come with procps, which container and other minimal images do not
+# have; sh, tr and grep are in every system (busybox has them too), so nothing has to be installed.
+# grep exits with 0 (found) or 1 (not found); anything else is an error and fails the task, so a running
+# QEMU is never taken for "not running" (the role would start a second one and leave its ports unprotected).
+# The pattern is anchored at the start of the command line, so the shell and the grep of this task, whose
+# command lines contain the pattern too, do not match.
+- name: Find the running QEMU of the role
+  ansible.builtin.shell: >-
+    for p in [0-9]*; do
+    c=$(tr '\000' ' ' 2>/dev/null < "$p/cmdline") || continue;
+    [ -n "$c" ] && printf '%s %s\n' "$p" "$c";
+    done | grep -E -e {{ ('^[0-9]+ ' ~ __lisoq_qemu_pattern) | quote }}
+  args:
+    chdir: /proc
+  register: __lisoq_qemu_running
+  changed_when: false
+  failed_when: __lisoq_qemu_running.rc not in [0, 1]
+  check_mode: false
