@@ -8,6 +8,8 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ## [Unreleased]
 
+## [1.8.2] - 2026-11-11
+
 ### Fixed
 
 - Without `pgrep` on the target (container and other minimal images have no procps) the role took a running
@@ -325,6 +327,7 @@ First release after 1.0.3. Versions 1.0.4, 1.1.0 and 1.2.0 were never tagged; th
 
 ## [1.0.0] - 2022-09-20
 
+[1.8.2]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.8.1...1.8.2
 [1.8.1]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.8.0...1.8.1
 [1.8.0]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.7.1...1.8.0
 [1.7.1]: https://github.com/click0/ansible-linux-run-iso-in-qemu/compare/1.7.0...1.7.1
