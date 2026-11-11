@@ -9,7 +9,8 @@
       - '{{ __lisoq_qemu_pgrep_pattern }}'
   register: __lisoq_qemu_running
   changed_when: false
-  failed_when: false
+  # Without a working pgrep (not installed) a running QEMU would be taken for "not running" and started again.
+  failed_when: (__lisoq_qemu_running.rc not in [0, 1]) and (not ansible_check_mode)
   check_mode: false
 
 - name: QEMU is already running, a new instance will not be started
@@ -44,4 +45,5 @@
       args:
         chdir: '{{ __lisoq_static_data_dir }}'
       changed_when: true
-      ignore_errors: '{{ ansible_check_mode }}'
+      # Not in check mode: the command module fails on a chdir that does not exist yet before it skips.
+      when: (not ansible_check_mode)

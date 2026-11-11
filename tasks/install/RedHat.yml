@@ -21,6 +21,14 @@
   ignore_errors: '{{ ansible_check_mode }}'
   when: (__lisoq_qemu_package | bool)
 
+# The role finds its running QEMU with pgrep (see 1-configure.yml).
+- name: '{{ ansible_os_family }} | Install procps-ng (pgrep)'
+  ansible.builtin.yum:  # noqa: fqcn[action-core]
+    name:
+      - procps-ng
+    state: present
+  when: __lisoq_qemu_running_early.rc not in [0, 1]
+
 # The static QEMU and UEFI archives are extracted on the target: tar is not in a minimal EL8/EL9 install.
 - name: '{{ ansible_os_family }} | Install tar (and unzip) for the QEMU archives'
   ansible.builtin.yum:  # noqa: fqcn[action-core]

@@ -49,7 +49,8 @@
       - '{{ __lisoq_qemu_pgrep_pattern }}'
   register: __lisoq_acl_qemu_running
   changed_when: false
-  failed_when: false
+  # Without a working pgrep the ports of a running QEMU would silently stay unprotected.
+  failed_when: (__lisoq_acl_qemu_running.rc not in [0, 1]) and (not ansible_check_mode)
   check_mode: false
 
 - name: Calculate the VNC ports of the running QEMU

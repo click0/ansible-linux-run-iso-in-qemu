@@ -153,6 +153,9 @@
   when: (ansible_memory_mb.real.total < 512) or (ansible_memory_mb.real.total < (__lisoq_total_need_ram | int))
 
 # A running QEMU of the role is not restarted (start_qemu.yml), and the RAM it uses is not free.
+# pgrep exits with 0 (found) or 1 (not found). Anything else means it could not run, e.g. it is not installed
+# (container and other minimal images have no procps): then it is installed with the other packages, and the
+# later checks (firewall, start) do not accept such a result.
 - name: Check whether the QEMU of the role is already running
   ansible.builtin.command:
     argv:

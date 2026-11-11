@@ -168,7 +168,8 @@ from the disks in the VM [is the real system](#console-of-an-installed-system), 
 |---|:---:|:---:|---|
 | Debian, Ubuntu and other Debian-family systems | yes | yes | |
 | CentOS / EL 7 | yes (EPEL) | yes | control node needs ansible-core 2.15 or 2.16: newer versions do not support its Python |
-| AlmaLinux, Rocky and other EL 8 / 9 | no | yes | no `qemu-system-x86` package; `qemu-kvm` supports neither the `pc` machine nor IDE disks |
+| AlmaLinux, Rocky and other EL 8 | no | yes | control node needs ansible-core 2.15 or 2.16 as well (system Python 3.6); no `qemu-system-x86` package, and `qemu-kvm` supports neither the `pc` machine nor IDE disks |
+| AlmaLinux, Rocky and other EL 9 | no | yes | no `qemu-system-x86` package; `qemu-kvm` supports neither the `pc` machine nor IDE disks |
 
 - `python3` (on Debian-family systems the role installs `python3-apt` itself, also when Python is missing);
 - at least 512 MiB of RAM, see [`lisoq_total_need_ram`](#ram-disk-and-work-directory);

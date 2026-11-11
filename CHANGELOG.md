@@ -8,6 +8,20 @@ and this project uses [Semantic Versioning](https://semver.org/) with plain `X.Y
 
 ## [Unreleased]
 
+### Fixed
+
+- Without `pgrep` on the target (container and other minimal images have no procps) the role took a running
+  QEMU for "not running": on a re-run it tried to start a second one, and the firewall did not learn the ports
+  of the running one. procps (`procps-ng` on EL) is now installed when `pgrep` does not work, and the checks
+  before the firewall rules and before the start fail instead of guessing.
+- In check mode on a host where the static QEMU is not extracted yet, the start task printed a failure (ignored)
+  about a missing directory; it is skipped in check mode now.
+
+### Changed
+
+- README: EL 8 targets (AlmaLinux 8, Rocky 8) need ansible-core 2.15 or 2.16 on the control node, like EL 7:
+  their system Python is 3.6, which newer ansible-core does not support as a target.
+
 ## [1.8.1] - 2026-11-09
 
 ### Changed
